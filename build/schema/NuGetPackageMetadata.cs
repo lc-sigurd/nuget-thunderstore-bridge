@@ -10,6 +10,7 @@
 
 using System;
 using System.Text.Json.Serialization;
+using NuGet.Frameworks;
 using NuGet.Versioning;
 
 namespace Build.Schema;
@@ -85,7 +86,7 @@ public class NuGetCatalogEntry: IEquatable<NuGetCatalogEntry>
 public class NuGetDependencyGroup
 {
     [JsonPropertyName("targetFramework")]
-    public string TargetFramework { get; set; } = null!;
+    public NuGetFramework TargetFramework { get; set; } = null!;
 
     [JsonPropertyName("dependencies")]
     public NuGetDependency[]? Dependencies { get; set; }
