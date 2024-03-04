@@ -87,7 +87,7 @@ public sealed class RegisterJsonSchemasTask : FrostingTask<BuildContext>
 [IsDependentOn(typeof(RegisterJsonSchemasTask))]
 public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContext>
 {
-    public static JsonSerializerOptions JsonSerializerOptions = new() {
+    private static JsonSerializerOptions JsonSerializerOptions = new() {
         Converters = {
             new ValidatingJsonConverter()
         },
