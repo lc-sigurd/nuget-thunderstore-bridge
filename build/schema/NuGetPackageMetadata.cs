@@ -1,6 +1,6 @@
 /*
  * This file is largely based upon
- * https://github.com/Lordfirespeed/NuGet-GameLib-Dehumidifier/blob/20ec05e222b60cee6d6411116a1df5f42ee5d874/build/schema/EntriesDictionaryJsonConverter.cs
+ * https://github.com/Lordfirespeed/NuGet-GameLib-Dehumidifier/blob/20ec05e222b60cee6d6411116a1df5f42ee5d874/build/schema/NuGetPackageIndex.cs
  * Copyright (c) 2024 Joe Clack
  * Joe Clack licenses the referenced file to the Sigurd Team under the GPL-3.0-OR-LATER license.
  *
@@ -13,7 +13,7 @@ using System.Text.Json.Serialization;
 
 namespace Build.Schema;
 
-public class NuGetPackageIndex
+public class NuGetPackageMetadata
 {
     [JsonPropertyName("items")]
     public NuGetPackageVersionPage[] VersionPages { get; set; }
