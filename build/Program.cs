@@ -13,9 +13,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Build.Schema;
@@ -26,6 +23,13 @@ using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 using Cake.Frosting;
 using Json.Schema.Serialization;
+using NuGet.Common;
+using NuGet.Configuration;
+using NuGet.Frameworks;
+using NuGet.Packaging.Core;
+using NuGet.Protocol;
+using NuGet.Protocol.Core.Types;
+using NuGet.Versioning;
 
 public static class Program
 {
@@ -56,6 +60,13 @@ public class BuildContext : FrostingContext
     {
         get => _packageConfigurations ?? throw new InvalidOperationException();
         set => _packageConfigurations = new ReadOnlyCollection<PackageConfiguration>(value);
+    }
+
+    private ReadOnlyCollection<IPackageSearchMetadata>? _packageVersionsToBridge;
+
+    public IList<IPackageSearchMetadata> PackageVersionsToBridge {
+        get => _packageVersionsToBridge ?? throw new InvalidOperationException();
+        set => _packageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
     }
 
     public DirectoryPath RootDirectory { get; }
@@ -155,31 +166,105 @@ public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContex
 [TaskName("Prepare")]
 [IsDependentOn(typeof(CleanTask))]
 [IsDependentOn(typeof(DeserializeConfigurationTask))]
-public sealed class Prepare : FrostingTask;
+public sealed class PrepareTask : FrostingTask;
+
+public abstract class NuGetTaskBase : AsyncFrostingTask<BuildContext>
+{
+    protected static readonly SourceCacheContext SourceCache = new SourceCacheContext();
+    protected static readonly PackageSource Source = new PackageSource("https://api.nuget.org/v3/index.json");
+    protected static readonly SourceRepository SourceRepository = Repository.Factory.GetCoreV3(Source);
+    protected static readonly IEqualityComparer<IPackageSearchMetadata> PackageSearchMetadataComparer = new PackageSearchMetadataComparerImpl();
+
+    private class PackageSearchMetadataComparerImpl : IEqualityComparer<IPackageSearchMetadata>
+    {
+        public bool Equals(IPackageSearchMetadata? x, IPackageSearchMetadata? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (ReferenceEquals(x, null)) return false;
+            if (ReferenceEquals(y, null)) return false;
+            if (x.GetType() != y.GetType()) return false;
+            return Equals(x.Identity, y.Identity);
+        }
+
+        public int GetHashCode(IPackageSearchMetadata obj)
+        {
+            return (obj.Identity != null ? obj.Identity.GetHashCode() : 0);
+        }
+    }
+}
 
 [TaskName("Fetch NuGet context")]
-public sealed class FetchNuGetContextTask : AsyncFrostingTask<BuildContext> {
-    private static readonly HttpClientHandler GzipHandler = new()
+[IsDependentOn(typeof(PrepareTask))]
+public sealed class FetchNuGetContextTask : NuGetTaskBase
+{
+    private PackageMetadataResource _packageMetadataResource = null!;
+    private readonly FloatRange _absoluteLatestFloatRange = new FloatRange(NuGetVersionFloatBehavior.AbsoluteLatest);
+
+    private async Task<IPackageSearchMetadata[]> FetchNuGetPackageMetadata(BuildContext context, string packageId)
     {
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-    };
+        context.Log.Information($"Fetching index for NuGet package '{packageId}'");
+        return (await _packageMetadataResource.GetMetadataAsync(packageId, false, false, SourceCache, NullLogger.Instance, default))
+            .ToArray();
+    }
 
-    private static readonly HttpClient GzipNuGetClient = new(GzipHandler)
+    private async Task<IList<ValueTuple<IPackageSearchMetadata[], VersionRange>>> GetNuGetPackageMetadataForDependenciesOf(BuildContext context, IPackageSearchMetadata nuGetPackageVersion, NuGetFramework framework)
     {
-        BaseAddress = new Uri("https://api.nuget.org"),
-    };
+        var nearestDependencySet = NuGetFrameworkUtility
+            .GetNearest(nuGetPackageVersion.DependencySets, framework, group => group.TargetFramework);
+        var dependenciesForFramework = nearestDependencySet?.Packages ?? Array.Empty<PackageDependency>();
 
-    private async Task<NuGetPackageMetadata> FetchNuGetPackageMetadata(string packageId)
+        return await Task.WhenAll(
+            dependenciesForFramework
+                .Select(async dependency => new ValueTuple<IPackageSearchMetadata[], VersionRange>(await FetchNuGetPackageMetadata(context, dependency.Id), dependency.VersionRange))
+        );
+    }
+
+    private async Task<IEnumerable<IPackageSearchMetadata>> RecursivelyGetDependencyPackageVersionsOf(BuildContext context, IPackageSearchMetadata nuGetPackageVersion, NuGetFramework framework)
     {
-        var response = await GzipNuGetClient.GetAsync($"v3/registration5-gz-semver2/{packageId.ToLower()}/index.json");
+        var dependenciesWithRanges = await GetNuGetPackageMetadataForDependenciesOf(context, nuGetPackageVersion, framework);
 
-        if (response is { StatusCode: HttpStatusCode.NotFound })
-            throw new InvalidOperationException($"NuGet package '{packageId}' not found");
-        if (response is not { IsSuccessStatusCode: true })
-            throw new Exception($"Failed to fetch metadata for NuGet package '{packageId}'");
+        var dependencyVersions = dependenciesWithRanges
+            .Select(item => ResolveBestMatch(item.Item1, new VersionRange(item.Item2, _absoluteLatestFloatRange)))
+            .ToArray();
 
-        return await response.Content.ReadFromJsonAsync<NuGetPackageMetadata>()
-            ?? throw new InvalidOperationException($"Failed to deserialize metadata for NuGet package '{packageId}'");
+        var dependenciesOfDependencyVersions = await Task.WhenAll(
+            dependencyVersions
+                .Select(async version => await RecursivelyGetDependencyPackageVersionsOf(context, version, framework))
+        );
+
+        return dependencyVersions
+            .Concat(dependenciesOfDependencyVersions.SelectMany(x => x))
+            .ToHashSet(PackageSearchMetadataComparer);
+    }
+
+    private IPackageSearchMetadata ResolveBestMatch(IPackageSearchMetadata[] packageVersions, VersionRange range)
+    {
+        var versionIndex = packageVersions
+            .ToDictionary(version => version.Identity.Version);
+
+        return versionIndex[range.FindBestMatch(versionIndex.Keys)!];
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        _packageMetadataResource = await SourceRepository.GetResourceAsync<PackageMetadataResource>();
+
+        var initialPackagesFlatDependencies = await Task.WhenAll(
+            context.PackageConfigurations.Select(async package => await GetFlattenedNuGetPackageDependencies(package.PackageId))
+        );
+
+        context.PackageVersionsToBridge = initialPackagesFlatDependencies
+            .SelectMany(x => x)
+            .ToHashSet(PackageSearchMetadataComparer)
+            .ToList();
+
+        async Task<IEnumerable<IPackageSearchMetadata>> GetFlattenedNuGetPackageDependencies(string packageId)
+        {
+            var packageVersions = await FetchNuGetPackageMetadata(context, packageId);
+            var latestPackageVersion = ResolveBestMatch(packageVersions, new VersionRange(new NuGetVersion("0.0.0"), _absoluteLatestFloatRange));
+            var dependencies = await RecursivelyGetDependencyPackageVersionsOf(context, latestPackageVersion, context.CommunityConfiguration.RuntimeFramework);
+            return dependencies.Prepend(latestPackageVersion);
+        }
     }
 }
 
