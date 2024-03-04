@@ -269,6 +269,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
 }
 
 [TaskName("Fetch Thunderstore context")]
+[IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(FetchNuGetContextTask))]
 public sealed class FetchThunderstoreContextTask : AsyncFrostingTask<BuildContext>
 {
