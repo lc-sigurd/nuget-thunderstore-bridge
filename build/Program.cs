@@ -39,7 +39,7 @@ public static class Program
 
 public class BuildContext : FrostingContext
 {
-    public string? NuGetApiKey { get; }
+    public string? ThunderstoreApiKey { get; }
     public string ThunderstoreCommunitySlug { get; }
 
     private CommunityConfiguration? _communityConfiguration;
@@ -67,8 +67,8 @@ public class BuildContext : FrostingContext
     public BuildContext(ICakeContext context)
         : base(context)
     {
-        NuGetApiKey = context.Argument<string?>("nuget-api-key");
         ThunderstoreCommunitySlug = context.Argument<string?>("community") ?? throw new ArgumentNullException(nameof(ThunderstoreCommunitySlug), "Thunderstore community slug must be set.");
+        ThunderstoreApiKey = context.Argument<string?>("thunderstore-api-key", null);
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
         OutputDirectory = context.Environment.WorkingDirectory.Combine("dist");
