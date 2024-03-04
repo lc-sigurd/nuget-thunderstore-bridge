@@ -4,6 +4,12 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
 using Build.Schema;
 using Cake.Common;
 using Cake.Common.IO;
@@ -11,6 +17,7 @@ using Cake.Core;
 using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 using Cake.Frosting;
+using Json.Schema.Serialization;
 
 public static class Program
 {
@@ -24,7 +31,7 @@ public static class Program
 
 public class BuildContext : FrostingContext
 {
-    public string NuGetApiKey { get; }
+    public string? NuGetApiKey { get; }
     public string ThunderstoreCommunitySlug { get; }
 
     private CommunityConfiguration? _communityConfiguration;
@@ -35,14 +42,25 @@ public class BuildContext : FrostingContext
         set => _communityConfiguration = value;
     }
 
+    private ReadOnlyCollection<PackageConfiguration>? _packageConfigurations;
+
+    public IList<PackageConfiguration> PackageConfigurations
+    {
+        get => _packageConfigurations ?? throw new InvalidOperationException();
+        set => _packageConfigurations = new ReadOnlyCollection<PackageConfiguration>(value);
+    }
+
     public DirectoryPath RootDirectory { get; }
     public DirectoryPath OutputDirectory { get; }
+
+    public DirectoryPath CommunityConfigurationsDirectory => RootDirectory.Combine("Communities");
+    public DirectoryPath PackageConfigurationsDirectory => RootDirectory.Combine("Packages");
 
     public BuildContext(ICakeContext context)
         : base(context)
     {
-        NuGetApiKey = context.Argument<string>("nuget-api-key");
-        ThunderstoreCommunitySlug = context.Argument<string>("community");
+        NuGetApiKey = context.Argument<string?>("nuget-api-key");
+        ThunderstoreCommunitySlug = context.Argument<string?>("community") ?? throw new ArgumentNullException(nameof(ThunderstoreCommunitySlug), "Thunderstore community slug must be set.");
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
         OutputDirectory = context.Environment.WorkingDirectory.Combine("dist");
@@ -69,7 +87,61 @@ public sealed class RegisterJsonSchemasTask : FrostingTask<BuildContext>
 [IsDependentOn(typeof(RegisterJsonSchemasTask))]
 public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContext>
 {
+    public static JsonSerializerOptions JsonSerializerOptions = new() {
+        Converters = {
+            new ValidatingJsonConverter()
+        },
+        WriteIndented = true,
+    };
 
+    public async Task<CommunityConfiguration> DeserializeCommunityConfiguration(BuildContext context)
+    {
+        var communityConfigurationPath = context.CommunityConfigurationsDirectory.CombineWithFilePath($"{context.ThunderstoreCommunitySlug}.json");
+        context.Log.Information($"Deserializing community configuration from {communityConfigurationPath}");
+        await using FileStream communityConfigurationStream = File.OpenRead(communityConfigurationPath.FullPath);
+
+        return await JsonSerializer.DeserializeAsync<CommunityConfiguration>(communityConfigurationStream, JsonSerializerOptions)
+            ?? throw new InvalidOperationException($"Community configuration at {communityConfigurationPath} could not be deserialized.");
+    }
+
+    public async Task<PackageConfiguration> DeserializePackageConfiguration(BuildContext context, FilePath packageConfigurationPath)
+    {
+        context.Log.Information($"Deserializing package configuration from {packageConfigurationPath}");
+        await using FileStream packageConfigurationStream = File.OpenRead(packageConfigurationPath.FullPath);
+
+        return await JsonSerializer.DeserializeAsync<PackageConfiguration>(packageConfigurationStream, JsonSerializerOptions)
+            ?? throw new InvalidOperationException($"Package configuration at {packageConfigurationPath} could not be deserialized.");
+    }
+
+    public async Task<IList<PackageConfiguration>> DeserializeAllPackageConfigurations(BuildContext context)
+    {
+        return await Task.WhenAll(
+            context.GetFiles(new GlobPattern(context.PackageConfigurationsDirectory.CombineWithFilePath("*.json").FullPath))
+                .Select(DeserializePackageConfiguration)
+        );
+
+        // ReSharper disable once LocalFunctionHidesMethod
+        async Task<PackageConfiguration> DeserializePackageConfiguration(FilePath packageConfigurationPath)
+            => await this.DeserializePackageConfiguration(context, packageConfigurationPath);
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        await Task.WhenAll([
+            DeserializeAndSetCommunityConfiguration(),
+            DeserializeAndSetPackageConfigurations()
+        ]);
+
+        async Task DeserializeAndSetCommunityConfiguration()
+        {
+            context.CommunityConfiguration = await DeserializeCommunityConfiguration(context);
+        }
+
+        async Task DeserializeAndSetPackageConfigurations()
+        {
+            context.PackageConfigurations = await DeserializeAllPackageConfigurations(context);
+        }
+    }
 }
 
 [TaskName("Prepare")]
