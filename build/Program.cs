@@ -67,8 +67,8 @@ public class BuildContext : FrostingContext
     public BuildContext(ICakeContext context)
         : base(context)
     {
-        ThunderstoreCommunitySlug = context.Argument<string?>("community") ?? throw new ArgumentNullException(nameof(ThunderstoreCommunitySlug), "Thunderstore community slug must be set.");
         ThunderstoreApiKey = context.Argument<string?>("thunderstore-api-key", null);
+        ThunderstoreCommunitySlug = context.Argument<string>("community");
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
         OutputDirectory = context.Environment.WorkingDirectory.Combine("dist");
