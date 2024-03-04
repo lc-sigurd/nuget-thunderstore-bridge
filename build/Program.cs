@@ -63,7 +63,7 @@ public sealed class CleanTask : FrostingTask<BuildContext>
 [TaskName("Register JSON Schemas")]
 public sealed class RegisterJsonSchemasTask : FrostingTask<BuildContext>
 {
-
+    public override void Run(BuildContext context) { }
 }
 
 [TaskName("Deserialize configuration")]
