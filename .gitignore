@@ -44,6 +44,7 @@
 !/build
 /build/[Bb]in
 /build/[Oo]bj
+/build/[Dd]ist
 
 # Explicit exceptions/ignores
 **.user
