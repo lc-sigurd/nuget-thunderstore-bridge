@@ -10,26 +10,30 @@
 
 using System;
 using System.Text.Json.Serialization;
+using NuGet.Versioning;
 
 namespace Build.Schema;
 
 public class NuGetPackageMetadata
 {
     [JsonPropertyName("items")]
-    public NuGetPackageVersionPage[] VersionPages { get; set; }
+    public NuGetPackageVersionPage[] VersionPages { get; set; } = null!;
 }
 
 public class NuGetPackageVersionPage
 {
     [JsonPropertyName("items")]
-    public NuGetPackageVersion[] Versions { get; set; }
+    public NuGetPackageVersion[] Versions { get; set; } = null!;
 }
 
 public class NuGetPackageVersion : IEquatable<NuGetPackageVersion>
 {
-    public bool Equals(NuGetPackageVersion other)
+    [JsonPropertyName("catalogEntry")]
+    public NuGetCatalogEntry CatalogEntry { get; set; } = null!;
+
+    public bool Equals(NuGetPackageVersion? other)
     {
-        return CatalogEntry.Equals(other.CatalogEntry);
+        return CatalogEntry.Equals(other?.CatalogEntry);
     }
 
     public override bool Equals(object? obj)
@@ -44,18 +48,18 @@ public class NuGetPackageVersion : IEquatable<NuGetPackageVersion>
     {
         return CatalogEntry.GetHashCode();
     }
-
-    [JsonPropertyName("catalogEntry")]
-    public NuGetCatalogEntry CatalogEntry { get; set; }
 }
 
 public class NuGetCatalogEntry: IEquatable<NuGetCatalogEntry>
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; }
+    public string Id { get; set; } = null!;
 
     [JsonPropertyName("version")]
-    public string Version { get; set; }
+    public string Version { get; set; } = null!;
+
+    [JsonPropertyName("dependencyGroups")]
+    public NuGetDependencyGroup[] DependencyGroups { get; set; } = null!;
 
     public bool Equals(NuGetCatalogEntry? other)
     {
@@ -76,4 +80,22 @@ public class NuGetCatalogEntry: IEquatable<NuGetCatalogEntry>
     {
         return HashCode.Combine(Id, Version);
     }
+}
+
+public class NuGetDependencyGroup
+{
+    [JsonPropertyName("targetFramework")]
+    public string TargetFramework { get; set; } = null!;
+
+    [JsonPropertyName("dependencies")]
+    public NuGetDependency[]? Dependencies { get; set; }
+}
+
+public class NuGetDependency
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = null!;
+
+    [JsonPropertyName("range")]
+    public VersionRange Range { get; set; } = null!;
 }
