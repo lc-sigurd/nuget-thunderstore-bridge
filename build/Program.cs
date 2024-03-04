@@ -155,7 +155,7 @@ public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContex
 [TaskName("Prepare")]
 [IsDependentOn(typeof(RegisterJsonSchemasTask))]
 [IsDependentOn(typeof(DeserializeConfigurationTask))]
-public sealed class Prepare : FrostingTask { }
+public sealed class Prepare : FrostingTask;
 
 [TaskName("Fetch NuGet context")]
 public sealed class FetchNuGetContextTask : AsyncFrostingTask<BuildContext> {
