@@ -4,7 +4,6 @@
  */
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using Build.Schema;
 using Cake.Common;
 using Cake.Common.IO;
