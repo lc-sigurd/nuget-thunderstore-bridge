@@ -1,0 +1,50 @@
+# Exclude everything
+/*
+
+# Specific includes
+
+## Editorconfig
+!.editorconfig
+
+## Build System/Scripts
+!/.config
+!/global.json
+!NuGet.Config
+!Directory.Build.props
+!Directory.Build.targets
+!build.sh
+!build.ps1
+!build.cmd
+
+## Markdowns
+!*.md
+!LICENSE
+
+## important Git files
+!.gitmodules
+!.gitignore
+!.gitattributes
+!.git-blame-ignore-revs
+
+## GitHub specific
+!.github/
+
+## Libraries
+!/libs
+
+## Assets / metadata
+!/assets
+!/Communities
+!/Packages
+
+## Solution
+!nuget-thunderstore-bridge.sln
+
+### 'build' Project
+!/build
+/build/[Bb]in
+/build/[Oo]bj
+
+# Explicit exceptions/ignores
+**.user
+!**.template.*.user
