@@ -1,0 +1,6 @@
+{
+  "$schema": "../assets/community.schema.json",
+  "communitySlug": "lethal-company",
+  "runtimeFrameworkMoniker": "netstandard2.1",
+  "packageNamespace": "dotnet_lethal_company"
+}
