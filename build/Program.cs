@@ -1,4 +1,9 @@
 /*
+ * This file is largely based upon
+ * https://github.com/Lordfirespeed/NuGet-GameLib-Dehumidifier/blob/20ec05e222b60cee6d6411116a1df5f42ee5d874/build/Program.cs
+ * Copyright (c) 2024 Joe Clack
+ * Joe Clack licenses the referenced file to the Sigurd Team under the GPL-3.0-OR-LATER license.
+ *
  * Copyright (c) 2024 Sigurd Team
  * The Sigurd Team licenses this file to you under the GPL-3.0-OR-LATER license.
  */
@@ -8,6 +13,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Build.Schema;
@@ -151,7 +159,28 @@ public sealed class Prepare : FrostingTask { }
 
 [TaskName("Fetch NuGet context")]
 public sealed class FetchNuGetContextTask : AsyncFrostingTask<BuildContext> {
+    private static readonly HttpClientHandler GzipHandler = new()
+    {
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+    };
 
+    private static readonly HttpClient GzipNuGetClient = new(GzipHandler)
+    {
+        BaseAddress = new Uri("https://api.nuget.org"),
+    };
+
+    private async Task<NuGetPackageMetadata> FetchNuGetPackageMetadata(string packageId)
+    {
+        var response = await GzipNuGetClient.GetAsync($"v3/registration5-gz-semver2/{packageId.ToLower()}/index.json");
+
+        if (response is { StatusCode: HttpStatusCode.NotFound })
+            throw new InvalidOperationException($"NuGet package '{packageId}' not found");
+        if (response is not { IsSuccessStatusCode: true })
+            throw new Exception($"Failed to fetch metadata for NuGet package '{packageId}'");
+
+        return await response.Content.ReadFromJsonAsync<NuGetPackageMetadata>()
+            ?? throw new InvalidOperationException($"Failed to deserialize metadata for NuGet package '{packageId}'");
+    }
 }
 
 [TaskName("Fetch Thunderstore context")]
