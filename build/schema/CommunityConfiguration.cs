@@ -6,6 +6,7 @@
 using System.Text.Json.Serialization;
 using Json.Schema;
 using Json.Schema.Serialization;
+using NuGet.Frameworks;
 
 namespace Build.Schema;
 
@@ -17,8 +18,9 @@ public class CommunityConfiguration
     [JsonPropertyName("communitySlug")]
     public required string CommunitySlug { get; init; }
 
+    [JsonConverter(typeof(NuGetFrameworkJsonConverter))]
     [JsonPropertyName("runtimeFrameworkMoniker")]
-    public required string RuntimeFramework { get; init; }
+    public required NuGetFramework RuntimeFramework { get; init; }
 
     [JsonPropertyName("packageNamespace")]
     public required string PackageNamespace { get; init; }
