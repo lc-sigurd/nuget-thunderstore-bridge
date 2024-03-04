@@ -153,7 +153,7 @@ public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContex
 }
 
 [TaskName("Prepare")]
-[IsDependentOn(typeof(RegisterJsonSchemasTask))]
+[IsDependentOn(typeof(CleanTask))]
 [IsDependentOn(typeof(DeserializeConfigurationTask))]
 public sealed class Prepare : FrostingTask;
 
@@ -191,6 +191,8 @@ public sealed class FetchThunderstoreContextTask : AsyncFrostingTask<BuildContex
 }
 
 [TaskName("Check Thunderstore packages are up-to-date")]
+[IsDependentOn(typeof(PrepareTask))]
+[IsDependentOn(typeof(FetchNuGetContextTask))]
 [IsDependentOn(typeof(FetchThunderstoreContextTask))]
 public sealed class CheckThunderstorePackagesUpToDateTask : AsyncFrostingTask<BuildContext>
 {
@@ -198,24 +200,34 @@ public sealed class CheckThunderstorePackagesUpToDateTask : AsyncFrostingTask<Bu
 }
 
 [TaskName("Download NuGet packages")]
+[IsDependentOn(typeof(PrepareTask))]
+[IsDependentOn(typeof(FetchNuGetContextTask))]
+[IsDependentOn(typeof(FetchThunderstoreContextTask))]
+[IsDependentOn(typeof(CheckThunderstorePackagesUpToDateTask))]
 public sealed class DownloadNuGetPackagesTask : AsyncFrostingTask<BuildContext>
 {
 
 }
 
 [TaskName("Resolve runtime assemblies")]
+[IsDependentOn(typeof(PrepareTask))]
+[IsDependentOn(typeof(DownloadNuGetPackagesTask))]
 public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 {
 
 }
 
 [TaskName("Serialize Thunderstore package meta-schemas")]
+[IsDependentOn(typeof(PrepareTask))]
+[IsDependentOn(typeof(ResolveRuntimeAssembliesTask))]
 public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
 {
 
 }
 
 [TaskName("Build Thunderstore packages")]
+[IsDependentOn(typeof(PrepareTask))]
+[IsDependentOn(typeof(SerializeThunderstoreMetaSchemasTask))]
 public sealed class BuildThunderstorePackages : AsyncFrostingTask<BuildContext>
 {
 
