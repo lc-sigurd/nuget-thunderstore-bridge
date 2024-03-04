@@ -15,5 +15,5 @@ public class PackageConfiguration
 	public static JsonSchema PackageConfigurationSchema = JsonSchema.FromFile("../assets/package.schema.json");
 
 	[JsonPropertyName("packageId")]
-    public string PackageId { get; set; }
+    public required string PackageId { get; init; }
 }

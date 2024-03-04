@@ -15,11 +15,11 @@ public class CommunityConfiguration
 	public static JsonSchema CommunityConfigurationSchema = JsonSchema.FromFile("../assets/community.schema.json");
 
     [JsonPropertyName("communitySlug")]
-    public string CommunitySlug { get; set; }
+    public required string CommunitySlug { get; init; }
 
     [JsonPropertyName("runtimeFrameworkMoniker")]
-    public string RuntimeFrameworkMoniker { get; set; }
+    public required string RuntimeFramework { get; init; }
 
     [JsonPropertyName("packageNamespace")]
-    public string PackageNamespace { get; set; }
+    public required string PackageNamespace { get; init; }
 }
