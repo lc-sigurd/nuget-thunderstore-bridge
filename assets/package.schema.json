@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Package Deploy Configuration",
+  "description": "Describes a NuGet package configuration for deploying to Thunderstore.",
+  "type": "object",
+  "properties": {
+    "packageId": {
+      "title": "NuGet package ID",
+      "type": "string"
+    }
+  },
+  "required": [ "packageId" ]
+}
