@@ -16,5 +16,6 @@
         <PackageReference Include="Cake.NuGet" Version="4.0.0" />
         <PackageReference Include="NuGet.Frameworks" Version="6.9.1" />
         <PackageReference Include="NuGet.Protocol" Version="6.8.0" />
+        <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="13.6.0" />
     </ItemGroup>
 </Project>
