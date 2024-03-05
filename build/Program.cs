@@ -604,16 +604,18 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         var iconRelativePath = reader.NuspecReader.GetIcon();
         var iconUrl = reader.NuspecReader.GetIconUrl();
 
+        var packageDestination = GetPackageDestination(context, identity);
+        var iconFilePath = packageDestination.CombineWithFilePath("icon.png");
+
         if (!string.IsNullOrWhiteSpace(iconRelativePath)) {
             var extractedPaths = await ExtractPackageItems(context, identity, [iconRelativePath]);
             var extractedIconPath = extractedPaths.Single();
             using var image = new MagickImage(extractedIconPath);
             image.Resize(IconSize);
-            await image.WriteAsync(extractedIconPath);
+            await image.WriteAsync(iconFilePath.FullPath);
+            context.DeleteFile(extractedIconPath);
+            return [iconFilePath.FullPath];
         }
-
-        var packageDestination = GetPackageDestination(context, identity);
-        var iconFilePath = packageDestination.CombineWithFilePath("icon.png");
 
         if (!string.IsNullOrWhiteSpace(iconUrl)) {
             await FetchUri(context, new Uri(iconUrl), iconFilePath);
