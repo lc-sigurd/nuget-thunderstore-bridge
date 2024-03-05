@@ -495,30 +495,31 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         await FetchUri(context, new Uri($"https://github.com/spdx/license-list-data/raw/main/text/{license.Identifier}.txt"), destination);
     }
 
-    private async Task<IEnumerable<string>> FetchLicensesInExpression(BuildContext context, NuGetLicenseExpression expression, DirectoryPath destination)
+    private async Task FetchLicensesInExpression(BuildContext context, NuGetLicenseExpression expression, DirectoryPath destination)
     {
         if (expression is WithOperator { Type: LicenseExpressionType.Operator } withOperator) {
-            return await FetchLicensesInExpression(context, withOperator.License, destination);
+            await FetchLicensesInExpression(context, withOperator.License, destination);
+            return;
         }
 
         if (expression is LogicalOperator { Type: LicenseExpressionType.Operator } logicalOperator) {
-            var itemGroups = await Task.WhenAll(
+            await Task.WhenAll(
                 FetchLicensesInExpression(context, logicalOperator.Left, destination),
                 FetchLicensesInExpression(context, logicalOperator.Right, destination)
             );
-            return itemGroups.SelectMany(x => x);
+            return;
         }
 
         if (expression is NuGetLicense { Type: LicenseExpressionType.License } license) {
             var licensePath = destination.CombineWithFilePath($"{license.Identifier}.txt");
             await FetchLicense(context, license, licensePath);
-            return [licensePath.FullPath];
+            return;
         }
 
         throw new ArgumentOutOfRangeException(nameof(expression.Type), $"Unrecognised {nameof(LicenseExpressionType)}");
     }
 
-    private async Task<IEnumerable<string>> CopyLicense(BuildContext context, PackageIdentity identity)
+    private async Task CopyLicense(BuildContext context, PackageIdentity identity)
     {
         var reader = context.GetPackageReader(identity);
         var licenseMetadata = reader.NuspecReader.GetLicenseMetadata();
@@ -528,34 +529,32 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
 
         if (licenseMetadata is { Type: LicenseType.Expression, LicenseExpression.Type: LicenseExpressionType.Operator }) {
-            var licenseItems = await FetchLicensesInExpression(context, licenseMetadata.LicenseExpression, packageDestination.Combine("licenses"));
+            await FetchLicensesInExpression(context, licenseMetadata.LicenseExpression, packageDestination.Combine("licenses"));
             await using FileStream stream = File.OpenWrite(mainLicenseFilePath.FullPath);
             await using StreamWriter writer = new StreamWriter(stream);
             await writer.WriteAsync(licenseMetadata.LicenseExpression.ToString());
-            return licenseItems.Prepend(mainLicenseFilePath.FullPath);
+            return;
         }
 
         if (licenseMetadata is { Type: LicenseType.Expression, LicenseExpression.Type: LicenseExpressionType.License }) {
             await FetchLicense(context, (NuGetLicense)licenseMetadata.LicenseExpression, mainLicenseFilePath);
-            return [mainLicenseFilePath.FullPath];
+            return;
         }
 
         if (licenseMetadata is { Type: LicenseType.File }) {
             var extractedPaths = await ExtractPackageItems(context, identity, [licenseMetadata.License]);
             var extractedLicensePath = extractedPaths.Single();
             context.MoveFile(extractedLicensePath, mainLicenseFilePath);
-            return [mainLicenseFilePath.FullPath];
+            return;
         }
 
         if (!String.IsNullOrWhiteSpace(licenseUrl)) {
             await FetchUri(context, new Uri(licenseUrl), mainLicenseFilePath);
-            return [mainLicenseFilePath.FullPath];
+            return;
         }
-
-        return Enumerable.Empty<string>();
     }
 
-    private async Task<IEnumerable<string>> CopyReadmeFor(BuildContext context, PackageIdentity identity)
+    private async Task CopyReadmeFor(BuildContext context, PackageIdentity identity)
     {
         var reader = context.GetPackageReader(identity);
         var readmeItem = reader.NuspecReader.GetReadme();
@@ -565,7 +564,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
             var extractedPaths = await ExtractPackageItems(context, identity, [readmeItem]);
             var extractedReadmePath = extractedPaths.Single();
             context.MoveFile(extractedReadmePath, readmePath);
-            return [readmePath.FullPath];
+            return;
         }
 
         var description = GetDescription();
@@ -578,8 +577,6 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
             await writer.WriteLineAsync();
             await writer.WriteAsync(description);
         }
-
-        return [readmePath.FullPath];
 
         string GetTitle()
         {
@@ -600,7 +597,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         }
     }
 
-    private async Task<IEnumerable<string>> CopyIcon(BuildContext context, PackageIdentity identity)
+    private async Task CopyIcon(BuildContext context, PackageIdentity identity)
     {
         var reader = context.GetPackageReader(identity);
         var iconRelativePath = reader.NuspecReader.GetIcon();
@@ -612,51 +609,71 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         if (!string.IsNullOrWhiteSpace(iconRelativePath)) {
             var extractedPaths = await ExtractPackageItems(context, identity, [iconRelativePath]);
             var extractedIconPath = extractedPaths.Single();
-            using var image = new MagickImage(extractedIconPath);
-            image.Resize(IconSize);
-            await image.WriteAsync(iconFilePath.FullPath);
-            context.DeleteFile(extractedIconPath);
-            return [iconFilePath.FullPath];
+            await ResizeImage(extractedIconPath);
+            return;
         }
 
         if (!string.IsNullOrWhiteSpace(iconUrl)) {
             await FetchUri(context, new Uri(iconUrl), iconFilePath);
-            return [iconFilePath.FullPath];
+            await ResizeImage(iconFilePath);
+            return;
         }
 
         context.CopyFile(context.FallbackIconPath, iconFilePath);
-        return [iconFilePath.FullPath];
+
+        async Task ResizeImage(FilePath filePath)
+        {
+            using var image = new MagickImage(filePath.FullPath);
+            image.Resize(IconSize);
+            context.DeleteFile(filePath);
+            await image.WriteAsync(iconFilePath.FullPath);
+        }
     }
 
-    private async Task<IEnumerable<string>> CopyLibItems(BuildContext context, PackageIdentity identity)
+    private async Task CopyLibItems(BuildContext context, PackageIdentity identity)
     {
-        var items = (await FindLibItems(context, identity)).ToArray();
-        return await ExtractPackageItems(context, identity, items);
+        var itemRelativePaths = (await FindLibItems(context, identity)).ToArray();
+        if (itemRelativePaths.Length == 0) return;
+
+        var unpackedPaths = await ExtractPackageItems(context, identity, itemRelativePaths);
+
+        var libItemsDestination = GetPackageDestination(context, identity).Combine($"BepInEx/core/{identity.Id}");
+        context.EnsureDirectoryExists(libItemsDestination);
+        context.CleanDirectory(libItemsDestination);
+
+        foreach (var unpackedPath in unpackedPaths) {
+            context.MoveFileToDirectory(unpackedPath, libItemsDestination);
+        }
     }
 
-    private async Task<IEnumerable<string>> CopyAllItems(BuildContext context, PackageIdentity identity)
+    private async Task CopyAllItems(BuildContext context, PackageIdentity identity)
     {
-        var itemGroups = await Task.WhenAll(
+        await Task.WhenAll(
             CopyLicense(context, identity),
             CopyReadmeFor(context, identity),
             CopyIcon(context, identity),
             CopyLibItems(context, identity)
         );
-        return itemGroups.SelectMany(x => x);
+
+        RemoveEmptyDirectories(new DirectoryInfo(GetPackageDestination(context, identity).FullPath));
+
+        void RemoveEmptyDirectories(DirectoryInfo dir)
+        {
+            foreach (var subDir in dir.GetDirectories()) {
+                RemoveEmptyDirectories(subDir);
+            }
+
+            if (dir.GetFileSystemInfos().Length == 0) {
+                dir.Delete();
+            }
+        }
     }
 
     public override async Task RunAsync(BuildContext context)
     {
-        var itemsForPackages = await Task.WhenAll(
+        await Task.WhenAll(
             context.PackageVersionsToBridge.Select(packageVersion => CopyAllItems(context, packageVersion.Identity))
         );
-
-        context.RuntimeItemPaths = context.PackageVersionsToBridge
-            .Zip(itemsForPackages)
-            .ToDictionary(
-                item => item.First.Identity,
-                item => (IList<string>)item.Second.ToList()
-            );
     }
 }
 
