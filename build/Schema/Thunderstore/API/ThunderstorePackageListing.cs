@@ -12,4 +12,7 @@ public class ThunderstorePackageListing
 
     [JsonPropertyName("versions")]
     public required ThunderstorePackageVersionListing[] Versions { get; init; }
+
+    [JsonIgnore]
+    public ThunderstorePackageVersionListing LatestVersion => Versions[0];
 }
