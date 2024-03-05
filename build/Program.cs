@@ -363,7 +363,7 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
 [IsDependentOn(typeof(FetchNuGetContextTask))]
 [IsDependentOn(typeof(FetchThunderstoreContextTask))]
 [IsDependentOn(typeof(CheckThunderstorePackagesUpToDateTask))]
-public sealed class DownloadNuGetPackagesTask : AsyncFrostingTask<BuildContext>
+public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 {
 
 }
