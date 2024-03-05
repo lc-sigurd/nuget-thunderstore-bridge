@@ -468,6 +468,11 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 
     private async Task FetchUri(BuildContext context, Uri uri, FilePath destination)
     {
+        var maybeMatch = GitHubRichFileViewerUrl.Match(uri.ToString());
+        if (maybeMatch is { Success: true }) {
+            uri = new Uri($"{maybeMatch.Groups[1]}/raw/{maybeMatch.Groups[2]}");
+        }
+
         var response = await Client.GetAsync(uri);
         if (response is not { IsSuccessStatusCode: true }) throw new Exception($"Failed to fetch {uri}");
 
@@ -534,13 +539,6 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         if (!String.IsNullOrWhiteSpace(licenseUrl)) {
             var packageDestination = GetPackageDestination(context, identity);
             var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
-
-            var maybeMatch = GitHubRichFileViewerUrl.Match(licenseUrl);
-            if (maybeMatch is { Success: true }) {
-                var uri = new Uri($"{maybeMatch.Groups[1]}/raw/{maybeMatch.Groups[2]}");
-                await FetchUri(context, uri, mainLicenseFilePath);
-                return [mainLicenseFilePath.FullPath];
-            }
 
             await FetchUri(context, new Uri(licenseUrl), mainLicenseFilePath);
             return [mainLicenseFilePath.FullPath];
