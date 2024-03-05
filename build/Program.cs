@@ -27,6 +27,7 @@ using Cake.Core;
 using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 using Cake.Frosting;
+using Cake.Git;
 using Json.Schema.Serialization;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -106,6 +107,8 @@ public class BuildContext : FrostingContext
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
         OutputDirectory = context.Environment.WorkingDirectory.Combine("dist");
+
+        CurrentCommit = context.GitLogTip(RootDirectory);
     }
 }
 
