@@ -440,13 +440,14 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 
     private DirectoryPath GetPackageDestination(BuildContext context, PackageIdentity identity)
     {
-        return context.IntermediateOutputDirectory.Combine($"package-lib/{identity.Id}/{identity.Id}-{identity.Version}");
+        var destination = context.IntermediateOutputDirectory.Combine($"package-lib/{identity.Id}/{identity.Id}-{identity.Version}");
+        context.EnsureDirectoryExists(destination);
+        return destination;
     }
 
     private async Task<IEnumerable<string>> ExtractPackageItems(BuildContext context, PackageIdentity identity, string[] items)
     {
         var destination = GetPackageDestination(context, identity);
-        context.EnsureDirectoryExists(destination);
 
         var packageFileExtractor = new PackageFileExtractor(items, XmlDocFileSaveMode.Skip);
 
