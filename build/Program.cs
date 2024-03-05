@@ -365,6 +365,11 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
 [IsDependentOn(typeof(CheckThunderstorePackagesUpToDateTask))]
 public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 {
+    public override bool ShouldRun(BuildContext context)
+    {
+        if (context.PackageVersionsToBridge.Count == 0) return false;
+        return base.ShouldRun(context);
+    }
 
 }
 
@@ -373,7 +378,11 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 [IsDependentOn(typeof(DownloadNuGetPackagesTask))]
 public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 {
-
+    public override bool ShouldRun(BuildContext context)
+    {
+        if (context.PackageVersionsToBridge.Count == 0) return false;
+        return base.ShouldRun(context);
+    }
 }
 
 [TaskName("Serialize Thunderstore package meta-schemas")]
@@ -381,7 +390,11 @@ public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContex
 [IsDependentOn(typeof(ResolveRuntimeAssembliesTask))]
 public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
 {
-
+    public override bool ShouldRun(BuildContext context)
+    {
+        if (context.PackageVersionsToBridge.Count == 0) return false;
+        return base.ShouldRun(context);
+    }
 }
 
 [TaskName("Build Thunderstore packages")]
@@ -389,7 +402,11 @@ public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 [IsDependentOn(typeof(SerializeThunderstoreMetaSchemasTask))]
 public sealed class BuildThunderstorePackages : AsyncFrostingTask<BuildContext>
 {
-
+    public override bool ShouldRun(BuildContext context)
+    {
+        if (context.PackageVersionsToBridge.Count == 0) return false;
+        return base.ShouldRun(context);
+    }
 }
 
 [TaskName("Publish built Thunderstore packages")]
