@@ -557,13 +557,17 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
     {
         var reader = context.GetPackageReader(identity);
         var readmeItem = reader.NuspecReader.GetReadme();
+        var readmePath = GetPackageDestination(context, identity).CombineWithFilePath("README.md");
+
         if (!String.IsNullOrWhiteSpace(readmeItem)) {
-            return await ExtractPackageItems(context, identity, [readmeItem]);
+            var extractedPaths = await ExtractPackageItems(context, identity, [readmeItem]);
+            var extractedReadmePath = extractedPaths.Single();
+            context.MoveFile(extractedReadmePath, readmePath);
+            return [readmePath.FullPath];
         }
 
         var description = GetDescription();
 
-        var readmePath = GetPackageDestination(context, identity).CombineWithFilePath("README.md");
         await using FileStream stream = File.OpenWrite(readmePath.FullPath);
         await using StreamWriter writer = new StreamWriter(stream);
 
