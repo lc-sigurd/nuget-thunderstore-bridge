@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 using Json.Schema;
 using Json.Schema.Serialization;
 
-namespace Build.Schema;
+namespace Build.Schema.Local;
 
 [JsonSchema(typeof(PackageConfiguration), nameof(PackageConfigurationSchema))]
 public class PackageConfiguration

@@ -4,11 +4,12 @@
  */
 
 using System.Text.Json.Serialization;
+using Build.Schema.Converters;
 using Json.Schema;
 using Json.Schema.Serialization;
 using NuGet.Frameworks;
 
-namespace Build.Schema;
+namespace Build.Schema.Local;
 
 [JsonSchema(typeof(CommunityConfiguration), nameof(CommunityConfigurationSchema))]
 public class CommunityConfiguration

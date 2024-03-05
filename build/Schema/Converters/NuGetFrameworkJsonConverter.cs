@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using NuGet.Frameworks;
 using JsonException = Newtonsoft.Json.JsonException;
 
-namespace Build.Schema;
+namespace Build.Schema.Converters;
 
 public class NuGetFrameworkJsonConverter : JsonConverter<NuGetFramework>
 {

@@ -14,7 +14,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Build.Schema;
+namespace Build.Schema.Converters;
 
 // https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/converters-how-to?pivots=dotnet-8-0
 public abstract class EntriesDictionaryJsonConverter<TDictionary, TKey, TValue> : JsonConverterFactory
