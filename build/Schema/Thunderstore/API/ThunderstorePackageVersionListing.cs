@@ -7,4 +7,7 @@ public class ThunderstorePackageVersionListing
 {
     [JsonPropertyName("version_number")]
     public required Version Version { get; init; }
+
+    [JsonPropertyName("date_created")]
+    public required DateTimeOffset DateCreated { get; init; }
 }
