@@ -365,12 +365,40 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
 [IsDependentOn(typeof(CheckThunderstorePackagesUpToDateTask))]
 public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 {
+    private static readonly PackageDownloadContext PackageDownloadContext = new(SourceCache);
+    private static NuGetPathContext _pathContext = null!;
+    private static DownloadResource _downloadResource = null!;
+
     public override bool ShouldRun(BuildContext context)
     {
         if (context.PackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
+    private async Task<DownloadResourceResult> DownloadNuGetPackageVersion(BuildContext context, PackageIdentity packageIdentity)
+    {
+        return await _downloadResource.GetDownloadResourceResultAsync(
+            packageIdentity,
+            PackageDownloadContext,
+            _pathContext.UserPackageFolder,
+            NullLogger.Instance,
+            default
+        );
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        _pathContext = NuGetPathContext.Create(context.RootDirectory.FullPath);
+        _downloadResource = await SourceRepository.GetResourceAsync<DownloadResource>();
+
+        var downloadResults = await Task.WhenAll(
+            context.PackageVersionsToBridge
+                .Select(packageVersion => DownloadNuGetPackageVersion(context, packageVersion.Identity))
+        );
+
+        context.NuGetPackageDownloadResults = downloadResults
+            .ToDictionary(result => result.PackageReader.GetIdentity());
+    }
 }
 
 [TaskName("Resolve runtime assemblies")]
