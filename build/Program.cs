@@ -94,8 +94,9 @@ public class BuildContext : FrostingContext
     public GitCommit CurrentCommit { get; }
 
     public DirectoryPath RootDirectory { get; }
+    public DirectoryPath IntermediateOutputDirectory { get; }
     public DirectoryPath OutputDirectory { get; }
-
+    public DirectoryPath DistDirectory { get; }
     public DirectoryPath CommunityConfigurationsDirectory => RootDirectory.Combine("Communities");
     public DirectoryPath PackageConfigurationsDirectory => RootDirectory.Combine("Packages");
 
@@ -106,7 +107,9 @@ public class BuildContext : FrostingContext
         ThunderstoreCommunitySlug = context.Argument<string>("community");
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
-        OutputDirectory = context.Environment.WorkingDirectory.Combine("dist");
+        IntermediateOutputDirectory = context.Environment.WorkingDirectory.Combine("bin");
+        OutputDirectory = context.Environment.WorkingDirectory.Combine("obj");
+        DistDirectory = context.Environment.WorkingDirectory.Combine("dist");
 
         CurrentCommit = context.GitLogTip(RootDirectory);
     }
@@ -118,7 +121,7 @@ public sealed class CleanTask : FrostingTask<BuildContext>
     public override void Run(BuildContext context)
     {
         context.Log.Information("Cleaning up old build artifacts...");
-        context.CleanDirectories(context.OutputDirectory.FullPath);
+        context.CleanDirectories(context.DistDirectory.FullPath);
     }
 }
 
