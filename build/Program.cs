@@ -338,9 +338,24 @@ public sealed class FetchThunderstoreContextTask : AsyncFrostingTask<BuildContex
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(FetchNuGetContextTask))]
 [IsDependentOn(typeof(FetchThunderstoreContextTask))]
-public sealed class CheckThunderstorePackagesUpToDateTask : AsyncFrostingTask<BuildContext>
+public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildContext>
 {
+    private bool HasDeployedVersion(BuildContext context, IPackageSearchMetadata packageVersion)
+    {
+        var thunderstoreFullName = (context.CommunityConfiguration.PackageNamespace, packageVersion.Identity.Id);
+        if (!context.ThunderstorePackageListingIndex.TryGetValue(thunderstoreFullName, out var thunderstoreListing)) return false;
+        if (!thunderstoreListing.LatestVersion.IsDeployedFrom(packageVersion.Identity.Version)) return false;
+        if (thunderstoreListing.LatestVersion.DateCreated < context.CurrentCommit.Committer.When) return false;
 
+        return true;
+    }
+
+    public override void Run(BuildContext context)
+    {
+        context.PackageVersionsToBridge = context.PackageVersionsToBridge
+            .Where(packageVersion => !HasDeployedVersion(context, packageVersion))
+            .ToList();
+    }
 }
 
 [TaskName("Download NuGet packages")]
