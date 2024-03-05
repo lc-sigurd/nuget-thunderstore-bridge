@@ -422,10 +422,10 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
     }
 }
 
-[TaskName("Copy runtime assemblies")]
+[TaskName("Extract package assets")]
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(DownloadNuGetPackagesTask))]
-public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
+public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildContext>
 {
     private static readonly HttpClient Client = new();
     private static readonly Regex GitHubRichFileViewerUrl = new("(https?://github\\.com/.*)/(?:blob|tree)/(.*)", RegexOptions.Compiled);
@@ -679,7 +679,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 
 [TaskName("Serialize Thunderstore package meta-schemas")]
 [IsDependentOn(typeof(PrepareTask))]
-[IsDependentOn(typeof(CopyRuntimeAssembliesTask))]
+[IsDependentOn(typeof(ExtractNuGetPackageAssetsTask))]
 public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
