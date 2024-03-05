@@ -117,6 +117,7 @@ public class BuildContext : FrostingContext
     public DirectoryPath DistDirectory { get; }
     public DirectoryPath CommunityConfigurationsDirectory => RootDirectory.Combine("Communities");
     public DirectoryPath PackageConfigurationsDirectory => RootDirectory.Combine("Packages");
+    public DirectoryPath IntermediatePackageLibDirectory => IntermediateOutputDirectory.Combine("package-lib");
     public FilePath FallbackIconPath => RootDirectory.CombineWithFilePath("assets/icons/nuget.png");
 
     public BuildContext(ICakeContext context)
@@ -141,6 +142,7 @@ public sealed class CleanTask : FrostingTask<BuildContext>
     {
         context.Log.Information("Cleaning up old build artifacts...");
         context.CleanDirectories(context.DistDirectory.FullPath);
+        context.CleanDirectories(context.IntermediatePackageLibDirectory.FullPath);
     }
 }
 
@@ -440,7 +442,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 
     private DirectoryPath GetPackageDestination(BuildContext context, PackageIdentity identity)
     {
-        var destination = context.IntermediateOutputDirectory.Combine($"package-lib/{identity.Id}/{identity.Id}-{identity.Version}");
+        var destination = context.IntermediatePackageLibDirectory.Combine($"{identity.Id}/{identity.Id}-{identity.Version}");
         context.EnsureDirectoryExists(destination);
         return destination;
     }
