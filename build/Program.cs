@@ -13,9 +13,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Build.Schema;
+using Build.Schema.Converters;
+using Build.Schema.Local;
+using Build.Schema.Thunderstore.API;
 using Cake.Common;
 using Cake.Common.IO;
 using Cake.Core;
@@ -68,6 +73,22 @@ public class BuildContext : FrostingContext
         get => _packageVersionsToBridge ?? throw new InvalidOperationException();
         set => _packageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
     }
+
+    private ReadOnlyDictionary<(string @namespace, string name), ThunderstorePackageListing> _thunderstorePackageListingIndex;
+
+    public IDictionary<(string @namespace, string name), ThunderstorePackageListing> ThunderstorePackageListingIndex {
+        get => _thunderstorePackageListingIndex ?? throw new InvalidOperationException();
+        set => _thunderstorePackageListingIndex = new ReadOnlyDictionary<(string @namespace, string name), ThunderstorePackageListing>(value);
+    }
+
+    private ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>? _nuGetPackageDownloadResults;
+
+    public IDictionary<PackageIdentity, DownloadResourceResult> NuGetPackageDownloadResults {
+        get => _nuGetPackageDownloadResults ?? throw new InvalidOperationException();
+        set => _nuGetPackageDownloadResults = new ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>(value);
+    }
+
+    public GitCommit CurrentCommit { get; }
 
     public DirectoryPath RootDirectory { get; }
     public DirectoryPath OutputDirectory { get; }
@@ -270,10 +291,39 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
 
 [TaskName("Fetch Thunderstore context")]
 [IsDependentOn(typeof(PrepareTask))]
-[IsDependentOn(typeof(FetchNuGetContextTask))]
 public sealed class FetchThunderstoreContextTask : AsyncFrostingTask<BuildContext>
 {
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new() {
+        Converters = {
+            new ThunderstorePackageIndexJsonConverter(),
+        },
+    };
 
+    private static readonly HttpClientHandler GzipHandler = new()
+    {
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+    };
+
+    private static readonly HttpClient GzipThunderstoreClient = new(GzipHandler)
+    {
+        BaseAddress = new Uri("https://thunderstore.io"),
+    };
+
+    private async Task<ThunderstorePackageListingIndex> FetchThunderstorePackageIndex(BuildContext context)
+    {
+        var response = await GzipThunderstoreClient.GetAsync($"/c/{context.ThunderstoreCommunitySlug}/api/v1/package/");
+        if (response is not { IsSuccessStatusCode: true }) throw new Exception("Failed to fetch Thunderstore package index.");
+
+        var packageMetadata = await response.Content.ReadFromJsonAsync<ThunderstorePackageListingIndex>(JsonSerializerOptions);
+        if (packageMetadata is null) throw new Exception("Failed to deserialize Thunderstore package index.");
+
+        return packageMetadata;
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        context.ThunderstorePackageListingIndex = await FetchThunderstorePackageIndex(context);
+    }
 }
 
 [TaskName("Check Thunderstore packages are up-to-date")]
