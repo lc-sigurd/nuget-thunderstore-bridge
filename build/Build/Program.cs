@@ -97,16 +97,10 @@ public class BuildContext : FrostingContext
 
     public PackageReaderBase GetPackageReader(PackageIdentity identity) => NuGetPackageDownloadResults[identity].PackageReader;
 
-    private ReadOnlyDictionary<PackageIdentity, IList<string>>? _runtimeItemPaths;
-
-    public IDictionary<PackageIdentity, IList<string>> RuntimeItemPaths {
-        get => _runtimeItemPaths ?? throw new InvalidOperationException();
-        set {
-            var backingDictionary = value
-                .Select(pair => new KeyValuePair<PackageIdentity, IList<string>>(pair.Key, new ReadOnlyCollection<string>(pair.Value)))
-                .ToDictionary();
-            _runtimeItemPaths = new ReadOnlyDictionary<PackageIdentity, IList<string>>(backingDictionary);
-        }
+    public DirectoryPath GetIntermediatePackageLibSubdirectory(PackageIdentity identity) {
+        var destination = IntermediatePackageLibDirectory.Combine($"{identity.Id}/{identity.Id}-{identity.Version}");
+        this.EnsureDirectoryExists(destination);
+        return destination;
     }
 
     public GitCommit CurrentCommit { get; }
@@ -440,12 +434,8 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
         return base.ShouldRun(context);
     }
 
-    private DirectoryPath GetPackageDestination(BuildContext context, PackageIdentity identity)
-    {
-        var destination = context.IntermediatePackageLibDirectory.Combine($"{identity.Id}/{identity.Id}-{identity.Version}");
-        context.EnsureDirectoryExists(destination);
-        return destination;
-    }
+    private DirectoryPath GetPackageDestination(BuildContext context, PackageIdentity identity) => context.GetIntermediatePackageLibSubdirectory(identity);
+
 
     private async Task<IEnumerable<string>> ExtractPackageItems(BuildContext context, PackageIdentity identity, string[] items)
     {
@@ -677,21 +667,23 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
     }
 }
 
-[TaskName("Serialize Thunderstore package meta-schemas")]
+[TaskName("Construct Thunderstore package meta-schemas")]
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(ExtractNuGetPackageAssetsTask))]
-public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
+public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
     {
         if (context.PackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
+
+
 }
 
 [TaskName("Build Thunderstore packages")]
 [IsDependentOn(typeof(PrepareTask))]
-[IsDependentOn(typeof(SerializeThunderstoreMetaSchemasTask))]
+[IsDependentOn(typeof(ConstructThunderstoreMetaSchemasTask))]
 public sealed class BuildThunderstorePackages : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
