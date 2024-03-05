@@ -91,6 +91,18 @@ public class BuildContext : FrostingContext
         set => _nuGetPackageDownloadResults = new ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>(value);
     }
 
+    private ReadOnlyDictionary<PackageIdentity, IList<string>>? _runtimeItemPaths;
+
+    public IDictionary<PackageIdentity, IList<string>> RuntimeItemPaths {
+        get => _runtimeItemPaths ?? throw new InvalidOperationException();
+        set {
+            var backingDictionary = value
+                .Select(pair => new KeyValuePair<PackageIdentity, IList<string>>(pair.Key, new ReadOnlyCollection<string>(pair.Value)))
+                .ToDictionary();
+            _runtimeItemPaths = new ReadOnlyDictionary<PackageIdentity, IList<string>>(backingDictionary);
+        }
+    }
+
     public GitCommit CurrentCommit { get; }
 
     public DirectoryPath RootDirectory { get; }
@@ -410,6 +422,29 @@ public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContex
     {
         if (context.PackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
+    }
+
+    private async Task<IEnumerable<string>> FindItemsFor(BuildContext context, PackageIdentity identity)
+    {
+        var packageReader = context.NuGetPackageDownloadResults[identity].PackageReader;
+        var libItemsGroupPerFramework = await packageReader.GetLibItemsAsync(default);
+        if (libItemsGroupPerFramework is null) return Array.Empty<string>();
+        var libItemsGroupForNearestFramework = NuGetFrameworkUtility.GetNearest(libItemsGroupPerFramework, context.CommunityConfiguration.RuntimeFramework, group => group.TargetFramework)!;
+        return libItemsGroupForNearestFramework.Items;
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        var itemsForPackages = await Task.WhenAll(
+            context.PackageVersionsToBridge.Select(packageVersion => FindItemsFor(context, packageVersion.Identity))
+        );
+
+        context.RuntimeItemPaths = context.PackageVersionsToBridge
+            .Zip(itemsForPackages)
+            .ToDictionary(
+                item => item.First.Identity,
+                item => (IList<string>)item.Second.ToList()
+            );
     }
 }
 
