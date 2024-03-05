@@ -29,6 +29,7 @@ using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 using Cake.Frosting;
 using Cake.Git;
+using ImageMagick;
 using Json.Schema.Serialization;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -116,6 +117,7 @@ public class BuildContext : FrostingContext
     public DirectoryPath DistDirectory { get; }
     public DirectoryPath CommunityConfigurationsDirectory => RootDirectory.Combine("Communities");
     public DirectoryPath PackageConfigurationsDirectory => RootDirectory.Combine("Packages");
+    public FilePath FallbackIconPath => RootDirectory.CombineWithFilePath("assets/icons/nuget.png");
 
     public BuildContext(ICakeContext context)
         : base(context)
@@ -426,6 +428,10 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
     private static readonly HttpClient Client = new();
     private static readonly Regex GitHubRichFileViewerUrl = new("(https?://github\\.com/.*)/(?:blob|tree)/(.*)", RegexOptions.Compiled);
 
+    private static readonly MagickGeometry IconSize = new(200, 200) {
+        IgnoreAspectRatio = true,
+    };
+
     public override bool ShouldRun(BuildContext context)
     {
         if (context.PackageVersionsToBridge.Count == 0) return false;
@@ -588,6 +594,32 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         }
     }
 
+    private async Task<IEnumerable<string>> CopyIcon(BuildContext context, PackageIdentity identity)
+    {
+        var reader = context.GetPackageReader(identity);
+        var iconRelativePath = reader.NuspecReader.GetIcon();
+        var iconUrl = reader.NuspecReader.GetIconUrl();
+
+        if (!string.IsNullOrWhiteSpace(iconRelativePath)) {
+            var extractedPaths = await ExtractPackageItems(context, identity, [iconRelativePath]);
+            var extractedIconPath = extractedPaths.Single();
+            using var image = new MagickImage(extractedIconPath);
+            image.Resize(IconSize);
+            await image.WriteAsync(extractedIconPath);
+        }
+
+        var packageDestination = GetPackageDestination(context, identity);
+        var iconFilePath = packageDestination.CombineWithFilePath("icon.png");
+
+        if (!string.IsNullOrWhiteSpace(iconUrl)) {
+            await FetchUri(context, new Uri(iconUrl), iconFilePath);
+            return [iconFilePath.FullPath];
+        }
+
+        context.CopyFile(context.FallbackIconPath, iconFilePath);
+        return [iconFilePath.FullPath];
+    }
+
     private async Task<IEnumerable<string>> CopyLibItems(BuildContext context, PackageIdentity identity)
     {
         var items = (await FindLibItems(context, identity)).ToArray();
@@ -599,6 +631,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         var itemGroups = await Task.WhenAll(
             CopyLicense(context, identity),
             CopyReadmeFor(context, identity),
+            CopyIcon(context, identity),
             CopyLibItems(context, identity)
         );
         return itemGroups.SelectMany(x => x);
