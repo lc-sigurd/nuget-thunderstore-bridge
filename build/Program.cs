@@ -119,8 +119,8 @@ public class BuildContext : FrostingContext
         ThunderstoreCommunitySlug = context.Argument<string>("community");
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
-        IntermediateOutputDirectory = context.Environment.WorkingDirectory.Combine("bin");
-        OutputDirectory = context.Environment.WorkingDirectory.Combine("obj");
+        IntermediateOutputDirectory = context.Environment.WorkingDirectory.Combine("obj");
+        OutputDirectory = context.Environment.WorkingDirectory.Combine("bin");
         DistDirectory = context.Environment.WorkingDirectory.Combine("dist");
 
         CurrentCommit = context.GitLogTip(RootDirectory);
