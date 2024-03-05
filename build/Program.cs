@@ -416,7 +416,7 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 [TaskName("Resolve runtime assemblies")]
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(DownloadNuGetPackagesTask))]
-public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
+public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
     {
@@ -450,7 +450,7 @@ public sealed class ResolveRuntimeAssembliesTask : AsyncFrostingTask<BuildContex
 
 [TaskName("Serialize Thunderstore package meta-schemas")]
 [IsDependentOn(typeof(PrepareTask))]
-[IsDependentOn(typeof(ResolveRuntimeAssembliesTask))]
+[IsDependentOn(typeof(CopyRuntimeAssembliesTask))]
 public sealed class SerializeThunderstoreMetaSchemasTask : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
