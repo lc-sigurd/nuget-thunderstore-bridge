@@ -430,7 +430,7 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
     private static readonly HttpClient Client = new();
     private static readonly Regex GitHubRichFileViewerUrl = new("(https?://github\\.com/.*)/(?:blob|tree)/(.*)", RegexOptions.Compiled);
 
-    private static readonly MagickGeometry IconSize = new(200, 200) {
+    private static readonly MagickGeometry IconSize = new(256, 256) {
         IgnoreAspectRatio = true,
     };
 
