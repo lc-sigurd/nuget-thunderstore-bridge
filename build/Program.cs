@@ -36,6 +36,8 @@ using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
+namespace Build;
+
 public static class Program
 {
     public static int Main(string[] args)
