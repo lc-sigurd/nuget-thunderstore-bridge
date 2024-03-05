@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <RunWorkingDirectory>$(MSBuildProjectDirectory)</RunWorkingDirectory>
+        <RootNamespace></RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
