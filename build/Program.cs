@@ -521,10 +521,11 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         var licenseMetadata = reader.NuspecReader.GetLicenseMetadata();
         var licenseUrl = reader.NuspecReader.GetLicenseUrl();
 
+        var packageDestination = GetPackageDestination(context, identity);
+        var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
+
         if (licenseMetadata is { Type: LicenseType.Expression, LicenseExpression.Type: LicenseExpressionType.Operator }) {
-            var packageDestination = GetPackageDestination(context, identity);
             var licenseItems = await FetchLicensesInExpression(context, licenseMetadata.LicenseExpression, packageDestination.Combine("licenses"));
-            var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
             await using FileStream stream = File.OpenWrite(mainLicenseFilePath.FullPath);
             await using StreamWriter writer = new StreamWriter(stream);
             await writer.WriteAsync(licenseMetadata.LicenseExpression.ToString());
@@ -532,20 +533,18 @@ public sealed class CopyRuntimeAssembliesTask : AsyncFrostingTask<BuildContext>
         }
 
         if (licenseMetadata is { Type: LicenseType.Expression, LicenseExpression.Type: LicenseExpressionType.License }) {
-            var packageDestination = GetPackageDestination(context, identity);
-            var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
             await FetchLicense(context, (NuGetLicense)licenseMetadata.LicenseExpression, mainLicenseFilePath);
             return [mainLicenseFilePath.FullPath];
         }
 
         if (licenseMetadata is { Type: LicenseType.File }) {
-            return await ExtractPackageItems(context, identity, [licenseMetadata.License]);
+            var extractedPaths = await ExtractPackageItems(context, identity, [licenseMetadata.License]);
+            var extractedLicensePath = extractedPaths.Single();
+            context.MoveFile(extractedLicensePath, mainLicenseFilePath);
+            return [mainLicenseFilePath.FullPath];
         }
 
         if (!String.IsNullOrWhiteSpace(licenseUrl)) {
-            var packageDestination = GetPackageDestination(context, identity);
-            var mainLicenseFilePath = packageDestination.CombineWithFilePath("LICENSE");
-
             await FetchUri(context, new Uri(licenseUrl), mainLicenseFilePath);
             return [mainLicenseFilePath.FullPath];
         }
