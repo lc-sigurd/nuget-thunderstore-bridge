@@ -104,6 +104,8 @@ public class BuildContext : FrostingContext
         set => _thunderstoreMetaSchemas = new ReadOnlyDictionary<PackageIdentity, ThunderstoreProject>(value);
     }
 
+    public ThunderstorePackageListing GetThunderstoreListing(PackageIdentity identity) => ThunderstorePackageListingIndex[(CommunityConfiguration.PackageNamespace, identity.Id)];
+
     public PackageReaderBase GetPackageReader(PackageIdentity identity) => NuGetPackageDownloadResults[identity].PackageReader;
 
     public DirectoryPath GetIntermediatePackageLibSubdirectory(PackageIdentity identity) {
