@@ -40,6 +40,8 @@ using NuGet.Packaging.Licenses;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
+using ThunderstoreCLI.Configuration;
+using ThunderstoreCLI.Models;
 
 namespace Build;
 
@@ -93,6 +95,13 @@ public class BuildContext : FrostingContext
     public IDictionary<PackageIdentity, DownloadResourceResult> NuGetPackageDownloadResults {
         get => _nuGetPackageDownloadResults ?? throw new InvalidOperationException();
         set => _nuGetPackageDownloadResults = new ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>(value);
+    }
+
+    private ReadOnlyDictionary<PackageIdentity, ThunderstoreProject> _thunderstoreMetaSchemas;
+
+    public IDictionary<PackageIdentity, ThunderstoreProject> ThunderstoreMetaSchemas {
+        get => _thunderstoreMetaSchemas ?? throw new InvalidOperationException();
+        set => _thunderstoreMetaSchemas = new ReadOnlyDictionary<PackageIdentity, ThunderstoreProject>(value);
     }
 
     public PackageReaderBase GetPackageReader(PackageIdentity identity) => NuGetPackageDownloadResults[identity].PackageReader;
