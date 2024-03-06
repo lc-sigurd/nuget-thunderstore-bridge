@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
+using Build.Schema.Converters;
 
 namespace Build.Schema.Thunderstore.API;
 
@@ -10,9 +14,10 @@ public class ThunderstorePackageListing
     [JsonPropertyName("owner")]
     public required string Namespace { get; init; }
 
+    [JsonConverter(typeof(ThunderstorePackageVersionListingIndexJsonConverter))]
     [JsonPropertyName("versions")]
-    public required ThunderstorePackageVersionListing[] Versions { get; init; }
+    public required Dictionary<Version, ThunderstorePackageVersionListing>  Versions { get; init; }
 
     [JsonIgnore]
-    public ThunderstorePackageVersionListing LatestVersion => Versions[0];
+    public ThunderstorePackageVersionListing LatestVersion => Versions.Values.MaxBy(versionListing => versionListing.Version)!;
 }
