@@ -106,6 +106,28 @@ public class BuildContext : FrostingContext
 
     public ThunderstorePackageListing GetThunderstoreListing(PackageIdentity identity) => ThunderstorePackageListingIndex[(CommunityConfiguration.PackageNamespace, identity.Id)];
 
+    private Dictionary<PackageIdentity, Version> _nextFreeVersionCache = new();
+
+    private Version ComputeNextFreeVersion(PackageIdentity identity)
+    {
+        var versionNumber = new Version(identity.Version.Major, identity.Version.Minor, identity.Version.Patch * 100);
+        var thunderstorePackage = GetThunderstoreListing(identity);
+        while (thunderstorePackage.Versions.ContainsKey(versionNumber)) {
+            versionNumber = new Version(versionNumber.Major, versionNumber.Minor, versionNumber.Build + 1);
+            if (versionNumber.Build % 100 == 0) throw new InvalidOperationException("Too many versions!!");
+        }
+
+        return versionNumber;
+    }
+
+    public Version GetNextFreeVersion(PackageIdentity identity)
+    {
+        if (_nextFreeVersionCache.TryGetValue(identity, out var nextFreeVersion)) return nextFreeVersion;
+        nextFreeVersion = ComputeNextFreeVersion(identity);
+        _nextFreeVersionCache[identity] = nextFreeVersion;
+        return nextFreeVersion;
+    }
+
     public PackageReaderBase GetPackageReader(PackageIdentity identity) => NuGetPackageDownloadResults[identity].PackageReader;
 
     public DirectoryPath GetIntermediatePackageLibSubdirectory(PackageIdentity identity) {
