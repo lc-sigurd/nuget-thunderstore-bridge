@@ -19,5 +19,11 @@ public class ThunderstorePackageListing
     public required Dictionary<Version, ThunderstorePackageVersionListing>  Versions { get; init; }
 
     [JsonIgnore]
-    public ThunderstorePackageVersionListing LatestVersion => Versions.Values.MaxBy(versionListing => versionListing.Version)!;
+    private ThunderstorePackageVersionListing? _latestVersion;
+
+    [JsonIgnore]
+    public ThunderstorePackageVersionListing LatestVersion => _latestVersion ??= ComputeLatestVersion();
+
+    private ThunderstorePackageVersionListing ComputeLatestVersion() => Versions.Values
+        .MaxBy(versionListing => versionListing.Version)!;
 }
