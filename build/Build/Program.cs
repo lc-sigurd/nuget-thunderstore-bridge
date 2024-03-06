@@ -42,6 +42,7 @@ using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 using ThunderstoreCLI.Configuration;
 using ThunderstoreCLI.Models;
+using Utils;
 
 namespace Build;
 
@@ -59,6 +60,8 @@ public class BuildContext : FrostingContext
 {
     public string? ThunderstoreApiKey { get; }
     public string ThunderstoreCommunitySlug { get; }
+
+    public Versioner Versioner;
 
     private CommunityConfiguration? _communityConfiguration;
 
@@ -136,8 +139,6 @@ public class BuildContext : FrostingContext
         return destination;
     }
 
-    public GitCommit CurrentCommit { get; }
-
     public DirectoryPath RootDirectory { get; }
     public DirectoryPath IntermediateOutputDirectory { get; }
     public DirectoryPath OutputDirectory { get; }
@@ -158,7 +159,7 @@ public class BuildContext : FrostingContext
         OutputDirectory = context.Environment.WorkingDirectory.Combine("bin");
         DistDirectory = context.Environment.WorkingDirectory.Combine("dist");
 
-        CurrentCommit = context.GitLogTip(RootDirectory);
+        Versioner = new(RootDirectory.FullPath);
     }
 }
 
@@ -393,7 +394,7 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
         var thunderstoreFullName = (context.CommunityConfiguration.PackageNamespace, packageVersion.Identity.Id);
         if (!context.ThunderstorePackageListingIndex.TryGetValue(thunderstoreFullName, out var thunderstoreListing)) return false;
         if (!thunderstoreListing.LatestVersion.IsDeployedFrom(packageVersion.Identity.Version)) return false;
-        if (thunderstoreListing.LatestVersion.DateCreated < context.CurrentCommit.Committer.When) return false;
+        if (thunderstoreListing.LatestVersion.DateCreated < context.Versioner.LastVersionChangeWhen) return false;
 
         return true;
     }
