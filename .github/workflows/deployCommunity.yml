@@ -7,11 +7,20 @@ on:
         description: Base name of file in 'Communities' directory
         required: true
         type: string
+      dry-run:
+        description: Don't publish packages to Thunderstore, upload build artifact only
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       community:
         required: true
         type: string
+      dry-run:
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -30,10 +39,18 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Build
+        if: ${{ inputs.dry-run == true || inputs.dry-run == "true" }}
         env:
           THUNDERSTORE_API_TOKEN: ${{ secrets[format('{0}_THUNDERSTORE_API_TOKEN', inputs.community)] }}
         run: |
           ./build.sh --community ${{ inputs.community }}
+
+      - name: Build & Publish
+        if: ${{ inputs.dry-run != true && inputs.dry-run != "true" }}
+        env:
+          THUNDERSTORE_API_TOKEN: ${{ secrets[format('{0}_THUNDERSTORE_API_TOKEN', inputs.community)] }}
+        run: |
+          ./build.sh --target "Publish built Thunderstore packages" --community ${{ inputs.community }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
