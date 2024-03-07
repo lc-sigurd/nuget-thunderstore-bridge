@@ -1,7 +1,7 @@
 name: Deploy all communities
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
   schedule:
     - cron: "0 0 * * *"
 
@@ -9,28 +9,27 @@ jobs:
   list-communities:
     name: List community configuration identifiers
     runs-on: ubuntu-latest
-    outputs: 
+    outputs:
       communities: ${{ steps.list.outputs.communities }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-    
+
       - name: List communities
         id: list
-        uses: .github/actions/listCommunities
+        uses: ./.github/actions/listCommunities
 
   dispatch-game-update-checks:
     needs: list-communities
     if: ${{ needs.list-communities.outputs.communities != '[]' && needs.list-communities.outputs.communities != '' }}
-    strategy: 
+    strategy:
       matrix:
         community: ${{ needs.list-communities.outputs.communities }}
       fail-fast: false
-    uses: .github/workflows/deployCommunity.yml
+    uses: ./.github/workflows/deployCommunity.yml
     with:
       community: ${{ matrix.community }}
     permissions:
       contents: write
       pull-requests: write
     secrets: inherit
-      
