@@ -764,7 +764,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 
         return resolvedDependencies
             .ToDictionary(
-                dependencyIdentity => $"{context.CommunityConfiguration.RuntimeFramework}-{dependencyIdentity.Id}",
+                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{dependencyIdentity.Id}",
                 dependencyIdentity => GetVersionOfLatestDeploy(context, dependencyIdentity).ToString()
             );
     }
