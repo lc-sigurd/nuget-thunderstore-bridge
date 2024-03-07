@@ -799,9 +799,15 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 Dependencies = ComputeDependenciesFor(context, packageVersion),
             },
             Build = new() {
-                Icon = packageLibSubDir.Combine("icon.png").FullPath,
-                OutDir = context.DistDirectory.FullPath,
-                Readme = packageLibSubDir.Combine("README.md").FullPath,
+                Icon = packageLibSubDir.Combine("icon.png")
+                    .GetRelativePath(packageLibSubDir)
+                    .FullPath,
+                OutDir = context.DistDirectory
+                    .GetRelativePath(packageLibSubDir)
+                    .FullPath,
+                Readme = packageLibSubDir.Combine("README.md")
+                    .GetRelativePath(packageLibSubDir)
+                    .FullPath,
                 CopyPaths = ComputeCopyPathsFor(context, packageVersion),
             },
             Publish = new() {
