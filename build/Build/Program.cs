@@ -882,7 +882,7 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
 }
 
 [TaskName("Publish built Thunderstore packages")]
-public sealed class PublishThunderstorePackages : AsyncFrostingTask<BuildContext>
+public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildContext>
 {
 
 }
