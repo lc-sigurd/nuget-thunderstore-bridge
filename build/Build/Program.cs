@@ -39,6 +39,7 @@ using NuGet.Packaging.Licenses;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
+using ThunderstoreCLI.Commands;
 using ThunderstoreCLI.Configuration;
 using ThunderstoreCLI.Models;
 using Utils;
@@ -849,12 +850,34 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 [TaskName("Build Thunderstore packages")]
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(ConstructThunderstoreMetaSchemasTask))]
-public sealed class BuildThunderstorePackages : AsyncFrostingTask<BuildContext>
+public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildContext>
 {
     public override bool ShouldRun(BuildContext context)
     {
         if (context.PackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
+    }
+
+    private async Task BuildThunderstorePackageFor(BuildContext context, PackageIdentity identity)
+    {
+        var metaSchema = context.ThunderstoreMetaSchemas[identity];
+        var metaSchemaConfigProvider = new ProjectFileConfig {
+            Project = metaSchema,
+            ProjectPath = new DirectoryInfo(context.GetIntermediatePackageLibSubdirectory(identity).FullPath),
+        };
+
+        var config = Config.Parse([new EnvironmentConfig(), metaSchemaConfigProvider]);
+        BuildCommand.DoBuild(config);
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        await Task.WhenAll(
+            context.ThunderstoreMetaSchemas.Keys
+                .Select(BuildThunderstorePackage)
+        );
+
+        async Task BuildThunderstorePackage(PackageIdentity identity) => await this.BuildThunderstorePackageFor(context, identity);
     }
 }
 
@@ -865,5 +888,5 @@ public sealed class PublishThunderstorePackages : AsyncFrostingTask<BuildContext
 }
 
 [TaskName("Default")]
-[IsDependentOn(typeof(BuildThunderstorePackages))]
+[IsDependentOn(typeof(BuildThunderstorePackagesTask))]
 public class DefaultTask : FrostingTask { }
