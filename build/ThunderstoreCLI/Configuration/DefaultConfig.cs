@@ -28,7 +28,7 @@ class DefaultConfig : EmptyConfig
     {
         return new PackageConfig
         {
-            ProjectConfigPath = Defaults.PROJECT_CONFIG_PATH,
+            ProjectPath = Defaults.PROJECT_CONFIG_PATH,
             Namespace = "AuthorName",
             Name = "PackageName",
             VersionNumber = "0.0.1",

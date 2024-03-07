@@ -61,7 +61,11 @@ public class Config
 
     public string? GetProjectBasePath()
     {
-        return Path.GetDirectoryName(GetProjectConfigPath());
+        if (PackageConfig.ProjectPath is null)
+        {
+            throw new Exception("GeneralConfig.ProjectPath can't be null");
+        }
+        return Path.GetFullPath(PackageConfig.ProjectPath);
     }
 
     public string GetProjectRelativePath(string path)
@@ -85,15 +89,6 @@ public class Config
             throw new Exception("BuildConfig.ReadmePath can't be null");
         }
         return GetProjectRelativePath(BuildConfig.ReadmePath);
-    }
-
-    public string GetProjectConfigPath()
-    {
-        if (PackageConfig.ProjectConfigPath is null)
-        {
-            throw new Exception("GeneralConfig.ProjectConfigPath can't be null");
-        }
-        return Path.GetFullPath(PackageConfig.ProjectConfigPath);
     }
 
     public string GetBuildOutputDir()
@@ -185,7 +180,7 @@ public class GeneralConfig
 
 public class PackageConfig
 {
-    public string? ProjectConfigPath { get; set; }
+    public string? ProjectPath { get; set; }
     public string? Namespace { get; set; }
     public string? Name { get; set; }
     public string? VersionNumber { get; set; }

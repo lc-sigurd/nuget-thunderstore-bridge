@@ -30,18 +30,18 @@ public static class BuildCommand
         public bool HasWarnings { get; protected set; }
         public bool HasErrors { get; protected set; }
 
-        protected Dictionary<string, Func<byte[]>> plan;
-        protected Dictionary<string, string> duplicateMap;
-        protected HashSet<string> directories;
-        protected HashSet<string> files;
+        protected readonly Dictionary<string, Func<byte[]>> Plan;
+        protected readonly Dictionary<string, string> DuplicateMap;
+        protected readonly HashSet<string> Directories;
+        protected readonly HashSet<string> Files;
 
         public ArchivePlan(Config config)
         {
             Config = config;
-            plan = new();
-            duplicateMap = new();
-            directories = new();
-            files = new();
+            Plan = new();
+            DuplicateMap = new();
+            Directories = new();
+            Files = new();
         }
 
         public void AddPlan(string path, Func<byte[]> dataGetter)
@@ -50,17 +50,16 @@ public static class BuildCommand
 
             var directoryKeys = new HashSet<string>();
             var pathParts = key;
-            var lastSeparatorIndex = pathParts.LastIndexOf("/");
+            var lastSeparatorIndex = pathParts.LastIndexOf('/');
             while (lastSeparatorIndex > 0)
             {
                 pathParts = pathParts.Substring(0, lastSeparatorIndex);
                 directoryKeys.Add(pathParts);
-                lastSeparatorIndex = pathParts.LastIndexOf("/");
+                lastSeparatorIndex = pathParts.LastIndexOf('/');
             }
 
-            if (duplicateMap.ContainsKey(key))
+            if (DuplicateMap.TryGetValue(key, out var duplicatePath))
             {
-                var duplicatePath = duplicateMap[key];
                 if (duplicatePath != path)
                 {
                     Write.Error(
@@ -76,10 +75,11 @@ public static class BuildCommand
                     $"{Dim(path)} was added multiple times to the build and will be overwritten",
                     $"Re-Planned for {White(Dim($"/{path}"))}"
                 );
-                plan[path] = dataGetter;
+                Plan[path] = dataGetter;
                 HasWarnings = true;
             }
-            else if (directories.Contains(key))
+
+            if (Directories.Contains(key))
             {
                 Write.Error(
                     "Filepath conflict!",
@@ -89,7 +89,8 @@ public static class BuildCommand
                 HasErrors = true;
                 return;
             }
-            else if (directoryKeys.Any(x => files.Contains(x)))
+
+            if (directoryKeys.Any(x => Files.Contains(x)))
             {
                 Write.Error(
                     "Directory path conflict!",
@@ -99,38 +100,22 @@ public static class BuildCommand
                 HasErrors = true;
                 return;
             }
-            else
-            {
-                plan[path] = dataGetter;
-                duplicateMap[key] = path;
 
-                files.Add(key);
-                foreach (var entry in directoryKeys)
-                {
-                    directories.Add(entry);
-                }
-                Write.Light($"Planned for /{path}");
+            Plan[path] = dataGetter;
+            DuplicateMap[key] = path;
+
+            Files.Add(key);
+            foreach (var entry in directoryKeys)
+            {
+                Directories.Add(entry);
             }
+            Write.Light($"Planned for /{path}");
         }
 
         public Dictionary<string, Func<byte[]>>.Enumerator GetEnumerator()
         {
-            return plan.GetEnumerator();
+            return Plan.GetEnumerator();
         }
-    }
-
-    public static int Run(Config config)
-    {
-        try
-        {
-            ValidateConfig(config);
-        }
-        catch (CommandException)
-        {
-            return 1;
-        }
-
-        return DoBuild(config);
     }
 
     public static int DoBuild(Config config)

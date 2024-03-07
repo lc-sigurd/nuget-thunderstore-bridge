@@ -9,35 +9,34 @@
  * The Sigurd Team licenses this file to you under the LGPL-3.0-OR-LATER license.
  */
 
+using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using ThunderstoreCLI.Models;
-using static Crayon.Output;
 
 namespace ThunderstoreCLI.Configuration;
 
 internal class ProjectFileConfig : EmptyConfig
 {
-    private string SourcePath = null!;
-    private ThunderstoreProject Project = null!;
+    public DirectoryInfo? ProjectPath { get; init; }
+    public ThunderstoreProject? Project { get; init; }
+
+    [MemberNotNull(nameof(Project))]
+    private void EnsureProject()
+    {
+        if (Project is null) throw new InvalidOperationException();
+        if (ProjectPath is null) throw new InvalidOperationException();
+    }
 
     public override void Parse(Config currentConfig)
     {
-        SourcePath = currentConfig.GetProjectConfigPath();
-        if (!File.Exists(SourcePath))
-        {
-            Utils.Write.Warn(
-                "Unable to find project configuration file",
-                $"Looked from {Dim(SourcePath)}"
-            );
-            Project = new ThunderstoreProject(false);
-            return;
-        }
-        Project = ThunderstoreProject.Deserialize(File.ReadAllText(SourcePath))!;
+        EnsureProject();
     }
 
     public override GeneralConfig GetGeneralConfig()
     {
+        EnsureProject();
         return new GeneralConfig
         {
             Repository = Project.Publish?.Repository!
@@ -46,12 +45,13 @@ internal class ProjectFileConfig : EmptyConfig
 
     public override PackageConfig GetPackageMeta()
     {
+        EnsureProject();
         return new PackageConfig
         {
             Namespace = Project.Package?.Namespace,
             Name = Project.Package?.Name,
             VersionNumber = Project.Package?.VersionNumber,
-            ProjectConfigPath = SourcePath,
+            ProjectPath = ProjectPath.FullName,
             Description = Project.Package?.Description,
             Dependencies = Project.Package?.Dependencies,
             ContainsNsfwContent = Project.Package?.ContainsNsfwContent,
@@ -61,10 +61,11 @@ internal class ProjectFileConfig : EmptyConfig
 
     public override BuildConfig GetBuildConfig()
     {
+        EnsureProject();
         return new BuildConfig
         {
             CopyPaths = Project.Build?.CopyPaths
-                .Select(static path => new CopyPathMap(path.Source, path.Target))
+                .Select(static path => new CopyPathMap(path.Source!, path.Target!))
                 .ToList(),
             IconPath = Project.Build?.Icon,
             OutDir = Project.Build?.OutDir,
@@ -74,6 +75,7 @@ internal class ProjectFileConfig : EmptyConfig
 
     public override PublishConfig GetPublishConfig()
     {
+        EnsureProject();
         return new PublishConfig
         {
             Categories = Project.Publish?.Categories.Categories,
@@ -83,10 +85,11 @@ internal class ProjectFileConfig : EmptyConfig
 
     public override InstallConfig GetInstallConfig()
     {
+        EnsureProject();
         return new InstallConfig
         {
             InstallerDeclarations = Project.Install?.InstallerDeclarations
-                .Select(static path => new InstallerDeclaration(path.Identifier))
+                .Select(static path => new InstallerDeclaration(path.Identifier!))
                 .ToList()
         };
     }
