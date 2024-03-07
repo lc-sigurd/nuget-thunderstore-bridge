@@ -690,15 +690,15 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
         var itemRelativePaths = (await FindLibItems(context, identity)).ToArray();
         if (itemRelativePaths.Length == 0) return;
 
-        var unpackedPaths = await ExtractPackageItems(context, identity, itemRelativePaths);
+        await ExtractPackageItems(context, identity, itemRelativePaths);
 
-        var libItemsDestination = GetPackageDestination(context, identity).Combine($"BepInEx/core/{identity.Id}");
-        context.EnsureDirectoryExists(libItemsDestination);
-        context.CleanDirectory(libItemsDestination);
+        var packageDestination = GetPackageDestination(context, identity);
 
-        foreach (var unpackedPath in unpackedPaths) {
-            context.MoveFileToDirectory(unpackedPath, libItemsDestination);
-        }
+        var libItemsSource = packageDestination.Combine("lib/");
+        var libItemsDestination = packageDestination.Combine($"BepInEx/core/{identity.Id}");
+        if (context.DirectoryExists(libItemsDestination)) context.DeleteDirectory(libItemsDestination, new() { Recursive = true });
+        context.CopyDirectory(libItemsSource, libItemsDestination);
+        context.DeleteDirectory(libItemsSource,  new() { Recursive = true });
     }
 
     private async Task CopyAllItems(BuildContext context, PackageIdentity identity)
