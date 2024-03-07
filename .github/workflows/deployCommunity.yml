@@ -1,4 +1,4 @@
-name: Deploy ${{ inputs.community }}
+name: Deploy community
 
 on:
   workflow_dispatch:
