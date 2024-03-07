@@ -120,7 +120,14 @@ public class BuildContext : FrostingContext
     private Version ComputeNextFreeVersion(PackageIdentity identity)
     {
         var versionNumber = new Version(identity.Version.Major, identity.Version.Minor, identity.Version.Patch * 100);
-        var thunderstorePackage = GetThunderstoreListing(identity);
+        ThunderstorePackageListing thunderstorePackage;
+        try {
+            thunderstorePackage = GetThunderstoreListing(identity);
+        }
+        catch (KeyNotFoundException) {
+            return versionNumber;
+        }
+
         while (thunderstorePackage.Versions.ContainsKey(versionNumber)) {
             versionNumber = new Version(versionNumber.Major, versionNumber.Minor, versionNumber.Build + 1);
             if (versionNumber.Build % 100 == 0) throw new InvalidOperationException("Too many versions!!");
