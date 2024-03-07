@@ -802,7 +802,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 Name = identity.Id,
                 VersionNumber = context.GetNextFreeVersion(identity).ToString(),
                 Description = $"NuGet {identity.Id} package re-bundled for convenient consumption and dependency management.",
-                WebsiteUrl = $"https://nuget.org/packages/{identity.Id}",
+                WebsiteUrl = $"https://nuget.org/packages/{identity.Id}/{identity.Version}",
                 ContainsNsfwContent = false,
                 Dependencies = ComputeDependenciesFor(context, packageVersion),
             },
