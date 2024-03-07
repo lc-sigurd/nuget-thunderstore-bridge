@@ -805,7 +805,11 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 CopyPaths = ComputeCopyPathsFor(context, packageVersion),
             },
             Publish = new() {
-                Categories = new ThunderstoreProject.CategoryDictionary(),
+                Categories = new ThunderstoreProject.CategoryDictionary {
+                    Categories = new() {
+                        { context.CommunityConfiguration.CommunitySlug, ["misc"] }
+                    }
+                },
                 Communities = [ context.CommunityConfiguration.CommunitySlug ],
                 Repository = Config.DefaultConfig.GeneralConfig.Repository,
             },
