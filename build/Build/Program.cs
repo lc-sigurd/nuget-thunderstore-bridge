@@ -854,10 +854,10 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
         return base.ShouldRun(context);
     }
 
-    private async Task BuildThunderstorePackageFor(BuildContext context, PackageIdentity identity)
+    private async Task BuildThunderstorePackage(BuildContext context, PackageIdentity identity)
     {
         var metaSchema = context.ThunderstoreMetaSchemas[identity];
-        var metaSchemaConfigProvider = new ProjectFileConfig {
+        var metaSchemaConfigProvider = new ProjectConfig {
             Project = metaSchema,
             ProjectPath = new DirectoryInfo(context.GetIntermediatePackageLibSubdirectory(identity).FullPath),
         };
@@ -873,7 +873,7 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
                 .Select(BuildThunderstorePackage)
         );
 
-        async Task BuildThunderstorePackage(PackageIdentity identity) => await this.BuildThunderstorePackageFor(context, identity);
+        async Task BuildThunderstorePackage(PackageIdentity identity) => await this.BuildThunderstorePackage(context, identity);
     }
 }
 

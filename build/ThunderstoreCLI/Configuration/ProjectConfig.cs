@@ -1,6 +1,6 @@
 /*
  * This file is largely based upon
- * https://github.com/thunderstore-io/thunderstore-cli/blob/10b73c843f2dd1a9ed9c6cb687dbbaa555626052/ThunderstoreCLI/Configuration/ProjectFileConfig.cs
+ * https://github.com/thunderstore-io/thunderstore-cli/blob/10b73c843f2dd1a9ed9c6cb687dbbaa555626052/ThunderstoreCLI/Configuration/ProjectConfig.cs
  * thunderstore-cli Copyright (c) 2021 Thunderstore
  * Thunderstore expressly permits Lordfirespeed to use and redistribute the source of thunderstore-cli as Lordfirespeed sees fit.
  * Lordfirespeed licenses the referenced file to the Sigurd team under the MIT license.
@@ -17,7 +17,7 @@ using ThunderstoreCLI.Models;
 
 namespace ThunderstoreCLI.Configuration;
 
-internal class ProjectFileConfig : EmptyConfig
+internal class ProjectConfig : EmptyConfig
 {
     public DirectoryInfo? ProjectPath { get; init; }
     public ThunderstoreProject? Project { get; init; }
