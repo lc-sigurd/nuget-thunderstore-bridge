@@ -807,14 +807,14 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 Dependencies = ComputeDependenciesFor(context, packageVersion),
             },
             Build = new() {
-                Icon = packageLibSubDir.Combine("icon.png")
-                    .GetRelativePath(packageLibSubDir)
+                Icon = packageLibSubDir
+                    .GetRelativePath(packageLibSubDir.Combine("icon.png"))
                     .FullPath,
-                OutDir = context.DistDirectory
-                    .GetRelativePath(packageLibSubDir)
+                OutDir = packageLibSubDir
+                    .GetRelativePath(context.DistDirectory)
                     .FullPath,
-                Readme = packageLibSubDir.Combine("README.md")
-                    .GetRelativePath(packageLibSubDir)
+                Readme = packageLibSubDir
+                    .GetRelativePath(packageLibSubDir.Combine("README.md"))
                     .FullPath,
                 CopyPaths = ComputeCopyPathsFor(context, packageVersion),
             },
