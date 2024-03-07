@@ -735,7 +735,99 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return base.ShouldRun(context);
     }
 
+    private Version GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity)
+    {
+        var deployingNow = context.PackageVersionsToBridge
+            .Select(package => package.Identity)
+            .FirstOrDefault(checkIdentity => Equals(checkIdentity, identity));
 
+        if (deployingNow is not null) {
+            return context.GetNextFreeVersion(deployingNow);
+        }
+
+        try {
+            return context.GetThunderstoreListing(identity)
+                .Versions
+                .Values
+                .Where(versionListing => versionListing.IsDeployedFrom(identity.Version))
+                .MaxBy(versionListing => versionListing.Version)!
+                .Version;
+        }
+        catch (KeyNotFoundException) {
+            return context.GetNextFreeVersion(identity);
+        }
+    }
+
+    private Dictionary<string, string> ComputeDependenciesFor(BuildContext context, IPackageSearchMetadata packageVersion)
+    {
+        if (!context.ResolvedPackageVersionDependencies.TryGetValue(packageVersion.Identity, out var resolvedDependencies)) return new();
+
+        return resolvedDependencies
+            .ToDictionary(
+                dependencyIdentity => $"{context.CommunityConfiguration.RuntimeFramework}-{dependencyIdentity.Id}",
+                dependencyIdentity => GetVersionOfLatestDeploy(context, dependencyIdentity).ToString()
+            );
+    }
+
+    private ThunderstoreProject.BuildData.CopyPath[] ComputeCopyPathsFor(BuildContext context, IPackageSearchMetadata packageVersion)
+    {
+        return [
+            new() {
+                Source = "./LICENSE",
+                Target = "/",
+            },
+            new() {
+                Source = "./BepInEx/",
+                Target = "/",
+            },
+        ];
+    }
+
+    private Task<ThunderstoreProject> ConstructThunderstoreMetaSchemaFor(BuildContext context, IPackageSearchMetadata packageVersion)
+    {
+        var identity = packageVersion.Identity;
+        var packageLibSubDir = context.GetIntermediatePackageLibSubdirectory(identity);
+
+        return Task.FromResult(new ThunderstoreProject {
+            Package = new() {
+                Namespace = context.CommunityConfiguration.PackageNamespace,
+                Name = identity.Id,
+                VersionNumber = context.GetNextFreeVersion(identity).ToString(),
+                Description = $"NuGet {identity.Id} package re-bundled for convenient consumption and dependency management.",
+                WebsiteUrl = $"https://nuget.org/packages/{identity.Id}",
+                ContainsNsfwContent = false,
+                Dependencies = ComputeDependenciesFor(context, packageVersion),
+            },
+            Build = new() {
+                Icon = packageLibSubDir.Combine("icon.png").FullPath,
+                OutDir = context.DistDirectory.FullPath,
+                Readme = packageLibSubDir.Combine("README.md").FullPath,
+                CopyPaths = ComputeCopyPathsFor(context, packageVersion),
+            },
+            Publish = new() {
+                Categories = new ThunderstoreProject.CategoryDictionary(),
+                Communities = [ context.CommunityConfiguration.CommunitySlug ],
+                Repository = Config.DefaultConfig.GeneralConfig.Repository,
+            },
+            Install = new() {
+                InstallerDeclarations = [],
+            },
+        });
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        var metaSchemas = await Task.WhenAll(
+            context.PackageVersionsToBridge
+                .Select(async packageVersion => await ConstructThunderstoreMetaSchemaFor(context, packageVersion))
+        );
+
+        context.ThunderstoreMetaSchemas = context.PackageVersionsToBridge
+            .Zip(metaSchemas)
+            .ToDictionary(pair => pair.Item1.Identity, pair => pair.Item2);
+
+        ;
+    }
 }
 
 [TaskName("Build Thunderstore packages")]
