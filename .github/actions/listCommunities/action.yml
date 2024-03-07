@@ -10,4 +10,4 @@ runs:
     - id: list-all-communities
       shell: bash
       run: |
-        echo "communities=$(find * -type f -name "*.json" -exec basename {} .json \; | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
+        echo "communities=$(find ./Communities/* -type f -name "*.json" -exec basename {} .json \; | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
