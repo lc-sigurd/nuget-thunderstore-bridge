@@ -777,8 +777,8 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 Target = "/",
             },
             new() {
-                Source = "./BepInEx/",
-                Target = "/",
+                Source = "./BepInEx",
+                Target = "/BepInEx",
             },
         ];
     }
