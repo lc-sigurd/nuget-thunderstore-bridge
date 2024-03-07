@@ -482,6 +482,8 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 [IsDependentOn(typeof(DownloadNuGetPackagesTask))]
 public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildContext>
 {
+    private static readonly HashSet<string> WhitelistedLibFileExtensions = [".dll", ".pdb"];
+
     private static readonly HttpClient Client = new();
     private static readonly Regex GitHubRichFileViewerUrl = new("(https?://github\\.com/.*)/(?:blob|tree)/(.*)", RegexOptions.Compiled);
 
@@ -523,7 +525,9 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
         if (libItemsGroupPerFramework is null) return Enumerable.Empty<string>();
         var libItemsGroupForNearestFramework = NuGetFrameworkUtility.GetNearest(libItemsGroupPerFramework, context.CommunityConfiguration.RuntimeFramework, group => group.TargetFramework)!;
         return libItemsGroupForNearestFramework.Items
-            .Where(item => item.EndsWith(".dll"));
+            .Where(HasWhitelistedExtension);
+
+        bool HasWhitelistedExtension(string itemPath) => WhitelistedLibFileExtensions.Contains(System.IO.Path.GetExtension(itemPath));
     }
 
     private async Task FetchUri(BuildContext context, Uri uri, FilePath destination)
