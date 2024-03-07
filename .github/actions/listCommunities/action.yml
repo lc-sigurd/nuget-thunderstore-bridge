@@ -2,7 +2,7 @@ name: 'List Communities'
 description: 'lists all community configurations in the repository as JSON'
 outputs:
   communities:
-    value: ${{ steps.list-all-communities.outputs.communities }}
+    value: ${{ fromJson(steps.list-all-communities.outputs.communities) }}
     description: "JSON list of community identifiers"
 runs:
   using: composite
