@@ -16,7 +16,7 @@ namespace ThunderstoreCLI.Configuration;
 
 class EnvironmentConfig : EmptyConfig
 {
-    private const string AUTH_TOKEN = "TCLI_AUTH_TOKEN";
+    private const string AUTH_TOKEN = "THUNDERSTORE_API_TOKEN";
 
     public override AuthConfig GetAuthConfig()
     {
