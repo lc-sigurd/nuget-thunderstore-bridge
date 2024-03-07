@@ -317,7 +317,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
         var dependenciesWithRanges = await GetNuGetPackageMetadataForDependenciesOf(context, nuGetPackageVersion, framework);
 
         var dependencyVersions = dependenciesWithRanges
-            .Select(item => ResolveBestMatch(item.Item1, new VersionRange(item.Item2, _absoluteLatestFloatRange)))
+            .Select(item => ResolveBestMatch(item.Item1, framework, new VersionRange(item.Item2, _absoluteLatestFloatRange)))
             .ToArray();
 
         var dependenciesOfDependencyVersions = await Task.WhenAll(
@@ -336,12 +336,16 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
         return dependencyVersionsSet;
     }
 
-    private IPackageSearchMetadata ResolveBestMatch(IPackageSearchMetadata[] packageVersions, VersionRange range)
+    private IPackageSearchMetadata ResolveBestMatch(IPackageSearchMetadata[] packageVersions, NuGetFramework framework, VersionRange range)
     {
-        var versionIndex = packageVersions
-            .ToDictionary(version => version.Identity.Version);
+        var orderedVersionCandidates = packageVersions
+            .Where(packageVersion => range.Satisfies(packageVersion.Identity.Version))
+            .OrderByDescending(packageVersion => packageVersion.Identity.Version);
 
-        return versionIndex[range.FindBestMatch(versionIndex.Keys)!];
+        return orderedVersionCandidates.First(SupportsFramework);
+
+        bool SupportsFramework(IPackageSearchMetadata packageVersion)
+            => NuGetFrameworkUtility.GetNearest(packageVersion.DependencySets, framework, group => group.TargetFramework) is not null;
     }
 
     public override async Task RunAsync(BuildContext context)
@@ -362,7 +366,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
         async Task<IEnumerable<IPackageSearchMetadata>> GetFlattenedNuGetPackageDependencies(string packageId)
         {
             var packageVersions = await FetchNuGetPackageMetadata(context, packageId);
-            var latestPackageVersion = ResolveBestMatch(packageVersions, new VersionRange(new NuGetVersion("0.0.0"), _absoluteLatestFloatRange));
+            var latestPackageVersion = ResolveBestMatch(packageVersions, context.CommunityConfiguration.RuntimeFramework, new VersionRange(new NuGetVersion("0.0.0"), _absoluteLatestFloatRange));
             var dependencies = await RecursivelyGetDependencyPackageVersionsOf(context, latestPackageVersion, context.CommunityConfiguration.RuntimeFramework);
             return dependencies.Prepend(latestPackageVersion);
         }
