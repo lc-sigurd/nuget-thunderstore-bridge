@@ -357,6 +357,8 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
             .ToHashSet(PackageSearchMetadataComparer)
             .ToList();
 
+        context.ResolvedPackageVersionDependencies = ResolvedPackageDependencies;
+
         async Task<IEnumerable<IPackageSearchMetadata>> GetFlattenedNuGetPackageDependencies(string packageId)
         {
             var packageVersions = await FetchNuGetPackageMetadata(context, packageId);
