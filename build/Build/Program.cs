@@ -843,8 +843,6 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         context.ThunderstoreMetaSchemas = context.PackageVersionsToBridge
             .Zip(metaSchemas)
             .ToDictionary(pair => pair.Item1.Identity, pair => pair.Item2);
-
-        ;
     }
 }
 
