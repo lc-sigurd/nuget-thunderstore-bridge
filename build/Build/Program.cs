@@ -28,7 +28,6 @@ using Cake.Core;
 using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 using Cake.Frosting;
-using Cake.Git;
 using ImageMagick;
 using Json.Schema.Serialization;
 using NuGet.Common;
