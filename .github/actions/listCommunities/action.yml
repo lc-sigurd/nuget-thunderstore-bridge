@@ -1,0 +1,13 @@
+name: 'List Communities'
+description: 'lists all community configurations in the repository as JSON'
+outputs:
+  communities:
+    value: ${{ steps.list-all-communities.outputs.communities }}
+    description: "JSON list of community identifiers"
+runs:
+  using: composite
+  steps:
+    - id: list-all-communities
+      shell: bash
+      run: |
+        echo "communities=$(find * -type f -name "*.json" -exec basename {} .json \; | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
