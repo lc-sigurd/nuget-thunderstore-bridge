@@ -85,6 +85,13 @@ public class BuildContext : FrostingContext
         set => _packageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
     }
 
+    private ReadOnlyDictionary<PackageIdentity, IList<PackageIdentity>>? _resolvedPackageVersionDependencies;
+
+    public IDictionary<PackageIdentity, IList<PackageIdentity>> ResolvedPackageVersionDependencies {
+        get => _resolvedPackageVersionDependencies ?? throw new InvalidOperationException();
+        set => _resolvedPackageVersionDependencies = new ReadOnlyDictionary<PackageIdentity, IList<PackageIdentity>>(value);
+    }
+
     private ReadOnlyDictionary<(string @namespace, string name), ThunderstorePackageListing> _thunderstorePackageListingIndex;
 
     public IDictionary<(string @namespace, string name), ThunderstorePackageListing> ThunderstorePackageListingIndex {
@@ -277,6 +284,8 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
     private PackageMetadataResource _packageMetadataResource = null!;
     private readonly FloatRange _absoluteLatestFloatRange = new FloatRange(NuGetVersionFloatBehavior.AbsoluteLatest);
 
+    private Dictionary<PackageIdentity, IList<PackageIdentity>> ResolvedPackageDependencies = new();
+
     private async Task<IPackageSearchMetadata[]> FetchNuGetPackageMetadata(BuildContext context, string packageId)
     {
         context.Log.Information($"Fetching index for NuGet package '{packageId}'");
@@ -309,9 +318,15 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
                 .Select(async version => await RecursivelyGetDependencyPackageVersionsOf(context, version, framework))
         );
 
-        return dependencyVersions
+        var dependencyVersionsSet = dependencyVersions
             .Concat(dependenciesOfDependencyVersions.SelectMany(x => x))
             .ToHashSet(PackageSearchMetadataComparer);
+
+        ResolvedPackageDependencies[nuGetPackageVersion.Identity] = dependencyVersionsSet
+            .Select(packageVersion => packageVersion.Identity)
+            .ToList();
+
+        return dependencyVersionsSet;
     }
 
     private IPackageSearchMetadata ResolveBestMatch(IPackageSearchMetadata[] packageVersions, VersionRange range)
