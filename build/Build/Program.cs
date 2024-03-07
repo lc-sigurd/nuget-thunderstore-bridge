@@ -878,9 +878,36 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
 }
 
 [TaskName("Publish built Thunderstore packages")]
+[IsDependentOn(typeof(BuildThunderstorePackagesTask))]
 public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildContext>
 {
+    public override bool ShouldRun(BuildContext context)
+    {
+        if (context.PackageVersionsToBridge.Count == 0) return false;
+        return base.ShouldRun(context);
+    }
 
+    private async Task PublishThunderstorePackage(BuildContext context, PackageIdentity identity)
+    {
+        var metaSchema = context.ThunderstoreMetaSchemas[identity];
+        var metaSchemaConfigProvider = new ProjectConfig {
+            Project = metaSchema,
+            ProjectPath = new DirectoryInfo(context.GetIntermediatePackageLibSubdirectory(identity).FullPath),
+        };
+
+        var config = Config.Parse([new EnvironmentConfig(), metaSchemaConfigProvider]);
+        PublishCommand.PublishFile(config, config.GetBuildOutputFile());
+    }
+
+    public override async Task RunAsync(BuildContext context)
+    {
+        await Task.WhenAll(
+            context.ThunderstoreMetaSchemas.Keys
+                .Select(PublishThunderstorePackage)
+        );
+
+        async Task PublishThunderstorePackage(PackageIdentity identity) => await this.PublishThunderstorePackage(context, identity);
+    }
 }
 
 [TaskName("Default")]
