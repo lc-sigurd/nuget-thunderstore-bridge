@@ -326,15 +326,13 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
                 .Select(async version => await RecursivelyGetDependencyPackageVersionsOf(context, version, framework))
         );
 
-        var dependencyVersionsSet = dependencyVersions
-            .Concat(dependenciesOfDependencyVersions.SelectMany(x => x))
-            .ToHashSet(PackageSearchMetadataComparer);
-
-        ResolvedPackageDependencies[nuGetPackageVersion.Identity] = dependencyVersionsSet
+        ResolvedPackageDependencies[nuGetPackageVersion.Identity] = dependencyVersions
             .Select(packageVersion => packageVersion.Identity)
             .ToList();
 
-        return dependencyVersionsSet;
+        return dependencyVersions
+            .Concat(dependenciesOfDependencyVersions.SelectMany(x => x))
+            .ToHashSet(PackageSearchMetadataComparer);
     }
 
     private IPackageSearchMetadata ResolveBestMatch(IPackageSearchMetadata[] packageVersions, NuGetFramework framework, VersionRange range)
