@@ -24,7 +24,7 @@ jobs:
     if: ${{ needs.list-communities.outputs.communities != '[]' && needs.list-communities.outputs.communities != '' }}
     strategy:
       matrix:
-        community: ${{ needs.list-communities.outputs.communities }}
+        community: ${{ fromJson(needs.list-communities.outputs.communities) }}
       fail-fast: false
     uses: ./.github/workflows/deployCommunity.yml
     with:
