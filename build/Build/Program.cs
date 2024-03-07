@@ -58,7 +58,6 @@ public static class Program
 
 public class BuildContext : FrostingContext
 {
-    public string? ThunderstoreApiKey { get; }
     public string ThunderstoreCommunitySlug { get; }
 
     public Versioner Versioner;
@@ -165,7 +164,6 @@ public class BuildContext : FrostingContext
     public BuildContext(ICakeContext context)
         : base(context)
     {
-        ThunderstoreApiKey = context.Argument<string?>("thunderstore-api-key", null);
         ThunderstoreCommunitySlug = context.Argument<string>("community");
 
         RootDirectory = context.Environment.WorkingDirectory.GetParent();
