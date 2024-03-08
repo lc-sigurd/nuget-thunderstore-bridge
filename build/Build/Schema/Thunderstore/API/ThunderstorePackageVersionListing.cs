@@ -14,8 +14,6 @@ public class ThunderstorePackageVersionListing
 
     public bool IsDeployedFrom(NuGetVersion version)
     {
-        if (version.IsLegacyVersion) throw new InvalidOperationException("Can't deploy from a legacy NuGet version.");
-
         if (Version.Major != version.Major) return false;
         if (Version.Minor != version.Minor) return false;
         var trimmedBuild = Version.Build / 100;
