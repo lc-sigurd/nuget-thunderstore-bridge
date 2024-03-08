@@ -41,9 +41,13 @@ public class Versioner(string repositoryRootPath)
     {
         _repository = new Repository(repositoryRootPath);
         using (_repository) {
-            return GetVersionTagCandidates()
+            var versionTag = GetVersionTagCandidates()
                 .OrderDescending()
                 .First();
+
+            // Evaluate lazy member before disposing _repository
+            _ = versionTag.Commit.Committer;
+            return versionTag;
         }
     }
 
@@ -133,7 +137,7 @@ public class Versioner(string repositoryRootPath)
             .ToArray();
     }
 
-    private sealed record VersionTagCandidate : IComparable<VersionTagCandidate>
+    public sealed record VersionTagCandidate : IComparable<VersionTagCandidate>
     {
         public required Commit Commit { get; init; }
         public required string TagName { get; init; }
