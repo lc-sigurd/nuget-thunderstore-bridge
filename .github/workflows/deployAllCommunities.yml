@@ -2,6 +2,12 @@ name: Deploy all communities
 
 on:
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Don't publish packages to Thunderstore, upload build artifacts only
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 0 * * *"
 
@@ -31,6 +37,7 @@ jobs:
     with:
       community: ${{ matrix.community }}
       community_secret_prefix: ${{ fromJson(needs.list-communities.outputs.community_secret_prefixes)[matrix.community] }}
+      dry-run: ${{ inputs.dry-run == true || inputs.dry-run == 'true' }}
     permissions:
       contents: write
       pull-requests: write
