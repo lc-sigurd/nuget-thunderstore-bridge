@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       communities: ${{ steps.list.outputs.communities }}
+      community_secret_prefixes: ${{ steps.list.outputs.community_secret_prefixes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,6 +30,7 @@ jobs:
     uses: ./.github/workflows/deployCommunity.yml
     with:
       community: ${{ matrix.community }}
+      community_secret_prefix: ${{ fromJson(needs.list-communities.outputs.community_secret_prefixes)[matrix.community] }}
     permissions:
       contents: write
       pull-requests: write

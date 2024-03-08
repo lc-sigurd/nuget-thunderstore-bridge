@@ -4,10 +4,15 @@ outputs:
   communities:
     value: ${{ steps.list-all-communities.outputs.communities }}
     description: "JSON list of community identifiers"
+  community_secret_prefixes:
+    value: ${{ steps.list-all-communities.outputs.community_secret_prefixes }}
+    description: "JSON dictionary mapping community identifiers to GitHub secret prefixes"
 runs:
   using: composite
   steps:
     - id: list-all-communities
       shell: bash
       run: |
-        echo "communities=$(find ./Communities/* -type f -name "*.json" -exec basename {} .json \; | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
+        identifiers=$(find ./Communities/* -type f -name "*.json" -exec basename {} .json \;)
+        echo "communities=$(echo "$identifiers" | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
+        echo "community_secret_prefixes=$(echo "$identifiers" | jq --raw-input | jq -n '[inputs | select(length>0) | {(.): (. | sub("-";"_"))} ] | add')" >> $GITHUB_OUTPUT
