@@ -848,7 +848,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
                 Repository = Config.DefaultConfig.GeneralConfig.Repository,
             },
             Install = new() {
-                InstallerDeclarations = [new() { Identifier = "foo-installer" }],
+                InstallerDeclarations = [new() { Identifier = "legacy" }],
             },
         });
     }
