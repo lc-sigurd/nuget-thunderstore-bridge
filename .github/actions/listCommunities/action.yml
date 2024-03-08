@@ -15,4 +15,4 @@ runs:
       run: |
         identifiers=$(find ./Communities/* -type f -name "*.json" -exec basename {} .json \;)
         echo "communities=$(echo "$identifiers" | jq --raw-input | jq --slurp --compact-output)" >> $GITHUB_OUTPUT
-        echo "community_secret_prefixes=$(echo "$identifiers" | jq --raw-input | jq -n '[inputs | select(length>0) | {(.): (. | sub("-";"_"))} ] | add')" >> $GITHUB_OUTPUT
+        echo "community_secret_prefixes=$(echo "$identifiers" | jq --raw-input | jq --compact-output -n '[inputs | select(length>0) | {(.): (. | sub("-";"_"))} ] | add')" >> $GITHUB_OUTPUT
