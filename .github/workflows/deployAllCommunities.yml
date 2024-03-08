@@ -26,7 +26,8 @@ jobs:
         id: list
         uses: ./.github/actions/listCommunities
 
-  dispatch-game-update-checks:
+  dispatch-community-deploys:
+    name: Dispatch community deploys
     needs: list-communities
     if: ${{ needs.list-communities.outputs.communities != '[]' && needs.list-communities.outputs.communities != '' }}
     strategy:
