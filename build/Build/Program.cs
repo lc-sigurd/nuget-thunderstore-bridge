@@ -929,7 +929,7 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
             _attemptDeployLock.Release();
         }
 
-        var metaSchema = context.ThunderstoreMetaSchemas[identity];
+        if (!context.ThunderstoreMetaSchemas.TryGetValue(identity, out var metaSchema)) return;
         var metaSchemaConfigProvider = new ProjectConfig {
             Project = metaSchema,
             ProjectPath = new DirectoryInfo(context.GetIntermediatePackageLibSubdirectory(identity).FullPath),
