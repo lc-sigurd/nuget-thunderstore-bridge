@@ -18,6 +18,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Build.Schema.Converters;
 using Build.Schema.Local;
@@ -78,11 +79,18 @@ public class BuildContext : FrostingContext
         set => _packageConfigurations = new ReadOnlyCollection<PackageConfiguration>(value);
     }
 
-    private ReadOnlyCollection<IPackageSearchMetadata>? _packageVersionsToBridge;
+    private ReadOnlyCollection<IPackageSearchMetadata>? _initialPackageVersionsToBridge;
 
-    public IList<IPackageSearchMetadata> PackageVersionsToBridge {
-        get => _packageVersionsToBridge ?? throw new InvalidOperationException();
-        set => _packageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
+    public IList<IPackageSearchMetadata> InitialPackageVersionsToBridge {
+        get => _initialPackageVersionsToBridge ?? throw new InvalidOperationException();
+        set => _initialPackageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
+    }
+
+    private ReadOnlyCollection<IPackageSearchMetadata>? _allPackageVersionsToBridge;
+
+    public IList<IPackageSearchMetadata> AllPackageVersionsToBridge {
+        get => _allPackageVersionsToBridge ?? throw new InvalidOperationException();
+        set => _allPackageVersionsToBridge = new ReadOnlyCollection<IPackageSearchMetadata>(value);
     }
 
     private ReadOnlyDictionary<PackageIdentity, IList<PackageIdentity>>? _resolvedPackageVersionDependencies;
@@ -353,9 +361,17 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
             context.PackageConfigurations.Select(async package => await GetFlattenedNuGetPackageDependencies(package.PackageId))
         );
 
-        context.PackageVersionsToBridge = initialPackagesFlatDependencies
+        context.AllPackageVersionsToBridge = initialPackagesFlatDependencies
             .SelectMany(x => x)
             .ToHashSet(PackageSearchMetadataComparer)
+            .ToList();
+
+        var initialPackageIds = context.PackageConfigurations
+            .Select(packageConfiguration => packageConfiguration.PackageId)
+            .ToHashSet();
+
+        context.InitialPackageVersionsToBridge = context.AllPackageVersionsToBridge
+            .Where(packageVersion => initialPackageIds.Contains(packageVersion.Identity.Id))
             .ToList();
 
         context.ResolvedPackageVersionDependencies = ResolvedPackageDependencies;
@@ -425,7 +441,7 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
 
     public override void Run(BuildContext context)
     {
-        context.PackageVersionsToBridge = context.PackageVersionsToBridge
+        context.AllPackageVersionsToBridge = context.AllPackageVersionsToBridge
             .Where(packageVersion => !HasDeployedVersion(context, packageVersion))
             .ToList();
     }
@@ -444,7 +460,7 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
 
     public override bool ShouldRun(BuildContext context)
     {
-        if (context.PackageVersionsToBridge.Count == 0) return false;
+        if (context.AllPackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
@@ -465,7 +481,7 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
         _downloadResource = await SourceRepository.GetResourceAsync<DownloadResource>();
 
         var downloadResults = await Task.WhenAll(
-            context.PackageVersionsToBridge
+            context.AllPackageVersionsToBridge
                 .Select(packageVersion => DownloadNuGetPackageVersion(context, packageVersion.Identity))
         );
 
@@ -490,7 +506,7 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
 
     public override bool ShouldRun(BuildContext context)
     {
-        if (context.PackageVersionsToBridge.Count == 0) return false;
+        if (context.AllPackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
@@ -724,7 +740,7 @@ public sealed class ExtractNuGetPackageAssetsTask : AsyncFrostingTask<BuildConte
     public override async Task RunAsync(BuildContext context)
     {
         await Task.WhenAll(
-            context.PackageVersionsToBridge.Select(packageVersion => CopyAllItems(context, packageVersion.Identity))
+            context.AllPackageVersionsToBridge.Select(packageVersion => CopyAllItems(context, packageVersion.Identity))
         );
     }
 }
@@ -736,7 +752,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 {
     public override bool ShouldRun(BuildContext context)
     {
-        if (context.PackageVersionsToBridge.Count == 0) return false;
+        if (context.AllPackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
@@ -749,7 +765,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 
     private Version GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity)
     {
-        var deployingNow = context.PackageVersionsToBridge
+        var deployingNow = context.AllPackageVersionsToBridge
             .Select(package => package.Identity)
             .FirstOrDefault(checkIdentity => Equals(checkIdentity, identity));
 
@@ -840,11 +856,11 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
     public override async Task RunAsync(BuildContext context)
     {
         var metaSchemas = await Task.WhenAll(
-            context.PackageVersionsToBridge
+            context.AllPackageVersionsToBridge
                 .Select(async packageVersion => await ConstructThunderstoreMetaSchemaFor(context, packageVersion))
         );
 
-        context.ThunderstoreMetaSchemas = context.PackageVersionsToBridge
+        context.ThunderstoreMetaSchemas = context.AllPackageVersionsToBridge
             .Zip(metaSchemas)
             .ToDictionary(pair => pair.Item1.Identity, pair => pair.Item2);
     }
@@ -857,7 +873,7 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
 {
     public override bool ShouldRun(BuildContext context)
     {
-        if (context.PackageVersionsToBridge.Count == 0) return false;
+        if (context.AllPackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
@@ -888,14 +904,31 @@ public sealed class BuildThunderstorePackagesTask : AsyncFrostingTask<BuildConte
 [IsDependentOn(typeof(BuildThunderstorePackagesTask))]
 public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildContext>
 {
+    private readonly HashSet<PackageIdentity> _attemptedDeploys = new();
+    private static SemaphoreSlim _attemptDeployLock = new(1, 1);
+
     public override bool ShouldRun(BuildContext context)
     {
-        if (context.PackageVersionsToBridge.Count == 0) return false;
+        if (context.AllPackageVersionsToBridge.Count == 0) return false;
         return base.ShouldRun(context);
     }
 
     private async Task PublishThunderstorePackage(BuildContext context, PackageIdentity identity)
     {
+        if (_attemptedDeploys.Contains(identity)) return;
+        await _attemptDeployLock.WaitAsync();
+        try {
+            if (!_attemptedDeploys.Add(identity)) return;
+        }
+        finally {
+            _attemptDeployLock.Release();
+        }
+
+        await Task.WhenAll(
+            context.ResolvedPackageVersionDependencies[identity]
+                .Select(dependencyIdentity => PublishThunderstorePackage(context, dependencyIdentity))
+        );
+
         var metaSchema = context.ThunderstoreMetaSchemas[identity];
         var metaSchemaConfigProvider = new ProjectConfig {
             Project = metaSchema,
@@ -909,12 +942,10 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
     public override async Task RunAsync(BuildContext context)
     {
         await Task.WhenAll(
-            context.PackageVersionsToBridge.Reverse()
+            context.InitialPackageVersionsToBridge
                 .Select(packageVersion => packageVersion.Identity)
-                .Select(PublishThunderstorePackage)
+                .Select(async identity => await PublishThunderstorePackage(context, identity))
         );
-
-        async Task PublishThunderstorePackage(PackageIdentity identity) => await this.PublishThunderstorePackage(context, identity);
     }
 }
 
