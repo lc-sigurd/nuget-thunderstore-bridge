@@ -20,6 +20,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Build.Extensions;
 using Build.Schema.Converters;
 using Build.Schema.Local;
 using Build.Schema.Thunderstore.API;
@@ -431,7 +432,7 @@ public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildCo
 {
     private bool HasDeployedVersion(BuildContext context, IPackageSearchMetadata packageVersion)
     {
-        var thunderstoreFullName = (context.CommunityConfiguration.PackageNamespace, packageVersion.Identity.Id);
+        var thunderstoreFullName = (context.CommunityConfiguration.PackageNamespace, packageVersion.Identity.FormatPackageName());
         if (!context.ThunderstorePackageListingIndex.TryGetValue(thunderstoreFullName, out var thunderstoreListing)) return false;
         if (!thunderstoreListing.LatestVersion.IsDeployedFrom(packageVersion.Identity.Version)) return false;
         if (thunderstoreListing.LatestVersion.DateCreated < context.Versioner.LastVersionChangeWhen) return false;
@@ -756,13 +757,6 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return base.ShouldRun(context);
     }
 
-    private string FormatPackageName(string packageId)
-    {
-        return packageId
-            .Replace(".", "_")
-            .Replace("-", "_");
-    }
-
     private Version GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity)
     {
         var deployingNow = context.AllPackageVersionsToBridge
@@ -792,7 +786,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 
         return resolvedDependencies
             .ToDictionary(
-                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{FormatPackageName(dependencyIdentity.Id)}",
+                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{dependencyIdentity.FormatPackageName()}",
                 dependencyIdentity => GetVersionOfLatestDeploy(context, dependencyIdentity).ToString()
             );
     }
@@ -819,7 +813,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return Task.FromResult(new ThunderstoreProject {
             Package = new() {
                 Namespace = context.CommunityConfiguration.PackageNamespace,
-                Name = FormatPackageName(identity.Id),
+                Name = identity.FormatPackageName(),
                 VersionNumber = context.GetNextFreeVersion(identity).ToString(),
                 Description = $"NuGet {identity.Id} package re-bundled for convenient consumption and dependency management.",
                 WebsiteUrl = $"https://nuget.org/packages/{identity.Id}/{identity.Version}",
