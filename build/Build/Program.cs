@@ -915,6 +915,11 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
 
     private async Task PublishThunderstorePackage(BuildContext context, PackageIdentity identity)
     {
+        await Task.WhenAll(
+            context.ResolvedPackageVersionDependencies[identity]
+                .Select(dependencyIdentity => PublishThunderstorePackage(context, dependencyIdentity))
+        );
+
         if (_attemptedDeploys.Contains(identity)) return;
         await _attemptDeployLock.WaitAsync();
         try {
@@ -923,11 +928,6 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
         finally {
             _attemptDeployLock.Release();
         }
-
-        await Task.WhenAll(
-            context.ResolvedPackageVersionDependencies[identity]
-                .Select(dependencyIdentity => PublishThunderstorePackage(context, dependencyIdentity))
-        );
 
         var metaSchema = context.ThunderstoreMetaSchemas[identity];
         var metaSchemaConfigProvider = new ProjectConfig {
