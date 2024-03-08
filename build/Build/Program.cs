@@ -299,7 +299,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
     private PackageMetadataResource _packageMetadataResource = null!;
     private readonly FloatRange _absoluteLatestFloatRange = new FloatRange(NuGetVersionFloatBehavior.AbsoluteLatest);
 
-    private Dictionary<PackageIdentity, IList<PackageIdentity>> ResolvedPackageDependencies = new();
+    private readonly Dictionary<PackageIdentity, IList<PackageIdentity>> _resolvedPackageDependencies = new();
 
     private async Task<IPackageSearchMetadata[]> FetchNuGetPackageMetadata(BuildContext context, string packageId)
     {
@@ -333,7 +333,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
                 .Select(async version => await RecursivelyGetDependencyPackageVersionsOf(context, version, framework))
         );
 
-        ResolvedPackageDependencies[nuGetPackageVersion.Identity] = dependencyVersions
+        _resolvedPackageDependencies[nuGetPackageVersion.Identity] = dependencyVersions
             .Select(packageVersion => packageVersion.Identity)
             .ToList();
 
@@ -375,7 +375,7 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
             .Where(packageVersion => initialPackageIds.Contains(packageVersion.Identity.Id))
             .ToList();
 
-        context.ResolvedPackageVersionDependencies = ResolvedPackageDependencies;
+        context.ResolvedPackageVersionDependencies = _resolvedPackageDependencies;
 
         async Task<IEnumerable<IPackageSearchMetadata>> GetFlattenedNuGetPackageDependencies(string packageId)
         {
