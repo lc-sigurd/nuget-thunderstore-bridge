@@ -902,7 +902,8 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
     public override async Task RunAsync(BuildContext context)
     {
         await Task.WhenAll(
-            context.ThunderstoreMetaSchemas.Keys
+            context.PackageVersionsToBridge.Reverse()
+                .Select(packageVersion => packageVersion.Identity)
                 .Select(PublishThunderstorePackage)
         );
 
