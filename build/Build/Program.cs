@@ -740,6 +740,13 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return base.ShouldRun(context);
     }
 
+    private string FormatPackageName(string packageId)
+    {
+        return packageId
+            .Replace(".", "_")
+            .Replace("-", "_");
+    }
+
     private Version GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity)
     {
         var deployingNow = context.PackageVersionsToBridge
@@ -769,7 +776,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
 
         return resolvedDependencies
             .ToDictionary(
-                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{dependencyIdentity.Id}",
+                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{FormatPackageName(dependencyIdentity.Id)}",
                 dependencyIdentity => GetVersionOfLatestDeploy(context, dependencyIdentity).ToString()
             );
     }
@@ -796,7 +803,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return Task.FromResult(new ThunderstoreProject {
             Package = new() {
                 Namespace = context.CommunityConfiguration.PackageNamespace,
-                Name = identity.Id,
+                Name = FormatPackageName(identity.Id),
                 VersionNumber = context.GetNextFreeVersion(identity).ToString(),
                 Description = $"NuGet {identity.Id} package re-bundled for convenient consumption and dependency management.",
                 WebsiteUrl = $"https://nuget.org/packages/{identity.Id}/{identity.Version}",
