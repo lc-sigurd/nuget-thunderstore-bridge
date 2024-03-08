@@ -917,7 +917,7 @@ public sealed class PublishThunderstorePackagesTask : AsyncFrostingTask<BuildCon
     {
         await Task.WhenAll(
             context.ResolvedPackageVersionDependencies[identity]
-                .Select(dependencyIdentity => PublishThunderstorePackage(context, dependencyIdentity))
+                .Select(async dependencyIdentity => await PublishThunderstorePackage(context, dependencyIdentity))
         );
 
         if (_attemptedDeploys.Contains(identity)) return;
