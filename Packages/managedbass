@@ -1,0 +1,4 @@
+{
+  "$schema": "../assets/package.schema.json",
+  "packageId": "ManagedBass"
+}
