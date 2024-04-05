@@ -1,0 +1,6 @@
+{
+  "$schema": "../assets/community.schema.json",
+  "communitySlug": "content-warning",
+  "runtimeFrameworkMoniker": "netstandard2.1",
+  "packageNamespace": "dotnet_content_warning"
+}
