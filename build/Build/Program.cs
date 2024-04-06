@@ -835,7 +835,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
             Publish = new() {
                 Categories = new ThunderstoreProject.CategoryDictionary {
                     Categories = new() {
-                        { context.CommunityConfiguration.CommunitySlug, ["misc"] }
+                        { context.CommunityConfiguration.CommunitySlug, ["misc", "tools"] }
                     }
                 },
                 Communities = [ context.CommunityConfiguration.CommunitySlug ],
