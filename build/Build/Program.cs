@@ -489,6 +489,12 @@ public sealed class DownloadNuGetPackagesTask : NuGetTaskBase
         context.NuGetPackageDownloadResults = downloadResults
             .ToDictionary(result => result.PackageReader.GetIdentity());
     }
+
+    public override void OnError(Exception exception, BuildContext context)
+    {
+        base.OnError(exception, context);
+        Console.WriteLine(exception.StackTrace);
+    }
 }
 
 [TaskName("Extract package assets")]
