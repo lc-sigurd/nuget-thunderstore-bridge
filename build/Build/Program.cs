@@ -251,6 +251,11 @@ public sealed class DeserializeConfigurationTask : AsyncFrostingTask<BuildContex
             DeserializeAndSetPackageConfigurations()
         ]);
 
+        if (context.CommunityConfiguration.PackageIds is null) return;
+        context.PackageConfigurations = context.PackageConfigurations
+            .Where(packageConfiguration => context.CommunityConfiguration.PackageIds.Contains(packageConfiguration.PackageId))
+            .ToList();
+
         async Task DeserializeAndSetCommunityConfiguration()
         {
             context.CommunityConfiguration = await DeserializeCommunityConfiguration(context);
