@@ -13,17 +13,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Build.Extensions;
-using Build.Schema.Converters;
+using Build.Schema.Thunderstore;
 using Build.Schema.Local;
-using Build.Schema.Thunderstore.API;
 using Cake.Common;
 using Cake.Common.IO;
 using Cake.Core;
@@ -32,6 +29,7 @@ using Cake.Core.IO;
 using Cake.Frosting;
 using ImageMagick;
 using Json.Schema.Serialization;
+using Microsoft.EntityFrameworkCore;
 using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Frameworks;
@@ -101,11 +99,11 @@ public class BuildContext : FrostingContext
         set => _resolvedPackageVersionDependencies = new ReadOnlyDictionary<PackageIdentity, IList<PackageIdentity>>(value);
     }
 
-    private ReadOnlyDictionary<(string @namespace, string name), ThunderstorePackageListing> _thunderstorePackageListingIndex;
+    private PackageIndexContext? _thunderstorePackageIndexContext;
 
-    public IDictionary<(string @namespace, string name), ThunderstorePackageListing> ThunderstorePackageListingIndex {
-        get => _thunderstorePackageListingIndex ?? throw new InvalidOperationException();
-        set => _thunderstorePackageListingIndex = new ReadOnlyDictionary<(string @namespace, string name), ThunderstorePackageListing>(value);
+    public PackageIndexContext ThunderstorePackageIndexContext {
+        get => _thunderstorePackageIndexContext ?? throw new InvalidOperationException();
+        set => _thunderstorePackageIndexContext = value;
     }
 
     private ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>? _nuGetPackageDownloadResults;
@@ -115,29 +113,32 @@ public class BuildContext : FrostingContext
         set => _nuGetPackageDownloadResults = new ReadOnlyDictionary<PackageIdentity, DownloadResourceResult>(value);
     }
 
-    private ReadOnlyDictionary<PackageIdentity, ThunderstoreProject> _thunderstoreMetaSchemas;
+    private ReadOnlyDictionary<PackageIdentity, ThunderstoreProject>? _thunderstoreMetaSchemas;
 
     public IDictionary<PackageIdentity, ThunderstoreProject> ThunderstoreMetaSchemas {
         get => _thunderstoreMetaSchemas ?? throw new InvalidOperationException();
         set => _thunderstoreMetaSchemas = new ReadOnlyDictionary<PackageIdentity, ThunderstoreProject>(value);
     }
 
-    public ThunderstorePackageListing GetThunderstoreListing(PackageIdentity identity) => ThunderstorePackageListingIndex[(CommunityConfiguration.PackageNamespace, identity.Id)];
+    public async Task<ThunderstorePackage?> GetThunderstoreListing(PackageIdentity identity, CancellationToken cancellationToken = default)
+    {
+        return await ThunderstorePackageIndexContext.Packages
+            .SingleOrDefaultAsync(
+                p => p.Namespace == CommunityConfiguration.PackageNamespace && p.Name == identity.Id,
+                cancellationToken: cancellationToken
+            );
+    }
 
     private Dictionary<PackageIdentity, Version> _nextFreeVersionCache = new();
 
-    private Version ComputeNextFreeVersion(PackageIdentity identity)
+    private async Task<Version> ComputeNextFreeVersion(PackageIdentity identity, CancellationToken cancellationToken = default)
     {
         var versionNumber = new Version(identity.Version.Major, identity.Version.Minor, identity.Version.Patch * 100);
-        ThunderstorePackageListing thunderstorePackage;
-        try {
-            thunderstorePackage = GetThunderstoreListing(identity);
-        }
-        catch (KeyNotFoundException) {
-            return versionNumber;
-        }
+        var thunderstorePackage = await GetThunderstoreListing(identity, cancellationToken);
+        if (thunderstorePackage is null) return versionNumber;
 
-        while (thunderstorePackage.Versions.ContainsKey(versionNumber)) {
+        var versions = new HashSet<Version>(thunderstorePackage.Versions.Select(version => version.VersionNumber));
+        while (versions.Contains(versionNumber)) {
             versionNumber = new Version(versionNumber.Major, versionNumber.Minor, versionNumber.Build + 1);
             if (versionNumber.Build % 100 == 0) throw new InvalidOperationException("Too many versions!!");
         }
@@ -145,10 +146,10 @@ public class BuildContext : FrostingContext
         return versionNumber;
     }
 
-    public Version GetNextFreeVersion(PackageIdentity identity)
+    public async Task<Version> GetNextFreeVersion(PackageIdentity identity, CancellationToken cancellationToken = default)
     {
         if (_nextFreeVersionCache.TryGetValue(identity, out var nextFreeVersion)) return nextFreeVersion;
-        nextFreeVersion = ComputeNextFreeVersion(identity);
+        nextFreeVersion = await ComputeNextFreeVersion(identity, cancellationToken);
         _nextFreeVersionCache[identity] = nextFreeVersion;
         return nextFreeVersion;
     }
@@ -387,64 +388,31 @@ public sealed class FetchNuGetContextTask : NuGetTaskBase
     }
 }
 
-[TaskName("Fetch Thunderstore context")]
-[IsDependentOn(typeof(PrepareTask))]
-public sealed class FetchThunderstoreContextTask : AsyncFrostingTask<BuildContext>
-{
-    private static readonly JsonSerializerOptions JsonSerializerOptions = new() {
-        Converters = {
-            new ThunderstorePackageIndexJsonConverter(),
-        },
-    };
-
-    private static readonly HttpClientHandler GzipHandler = new()
-    {
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-    };
-
-    private static readonly HttpClient GzipThunderstoreClient = new(GzipHandler)
-    {
-        BaseAddress = new Uri("https://thunderstore.io"),
-    };
-
-    private async Task<ThunderstorePackageListingIndex> FetchThunderstorePackageIndex(BuildContext context)
-    {
-        var response = await GzipThunderstoreClient.GetAsync($"/c/{context.ThunderstoreCommunitySlug}/api/v1/package/");
-        if (response is not { IsSuccessStatusCode: true }) throw new Exception("Failed to fetch Thunderstore package index.");
-
-        var packageMetadata = await response.Content.ReadFromJsonAsync<ThunderstorePackageListingIndex>(JsonSerializerOptions);
-        if (packageMetadata is null) throw new Exception("Failed to deserialize Thunderstore package index.");
-
-        return packageMetadata;
-    }
-
-    public override async Task RunAsync(BuildContext context)
-    {
-        context.ThunderstorePackageListingIndex = await FetchThunderstorePackageIndex(context);
-    }
-}
-
 [TaskName("Check Thunderstore packages are up-to-date")]
 [IsDependentOn(typeof(PrepareTask))]
 [IsDependentOn(typeof(FetchNuGetContextTask))]
 [IsDependentOn(typeof(FetchThunderstoreContextTask))]
-public sealed class CheckThunderstorePackagesUpToDateTask : FrostingTask<BuildContext>
+public sealed class CheckThunderstorePackagesUpToDateTask : AsyncFrostingTask<BuildContext>
 {
-    private bool HasDeployedVersion(BuildContext context, IPackageSearchMetadata packageVersion)
+    private async ValueTask<bool> HasDeployedVersion(BuildContext context, IPackageSearchMetadata packageVersion, CancellationToken token = default)
     {
-        var thunderstoreFullName = (context.CommunityConfiguration.PackageNamespace, packageVersion.Identity.FormatPackageName());
-        if (!context.ThunderstorePackageListingIndex.TryGetValue(thunderstoreFullName, out var thunderstoreListing)) return false;
+        var thunderstoreListing = await context.GetThunderstoreListing(packageVersion.Identity, token);
+        if (thunderstoreListing is null) return false;
         if (!thunderstoreListing.LatestVersion.IsDeployedFrom(packageVersion.Identity.Version)) return false;
         if (thunderstoreListing.LatestVersion.DateCreated < context.Versioner.LastVersionChangeWhen) return false;
 
         return true;
     }
 
-    public override void Run(BuildContext context)
+    public override async Task RunAsync(BuildContext context)
     {
-        context.AllPackageVersionsToBridge = context.AllPackageVersionsToBridge
-            .Where(packageVersion => !HasDeployedVersion(context, packageVersion))
-            .ToList();
+        context.AllPackageVersionsToBridge = await context.AllPackageVersionsToBridge
+            .ToAsyncEnumerable()
+            .Where(async (packageVersion, cts) => {
+                var hasDeployedVersion = await HasDeployedVersion(context, packageVersion, cts);
+                return !hasDeployedVersion;
+            })
+            .ToListAsync();
     }
 }
 
@@ -763,37 +731,35 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         return base.ShouldRun(context);
     }
 
-    private Version GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity)
+    private async ValueTask<Version> GetVersionOfLatestDeploy(BuildContext context, PackageIdentity identity, CancellationToken cancellationToken = default)
     {
         var deployingNow = context.AllPackageVersionsToBridge
             .Select(package => package.Identity)
             .FirstOrDefault(checkIdentity => Equals(checkIdentity, identity));
 
         if (deployingNow is not null) {
-            return context.GetNextFreeVersion(deployingNow);
+            return await context.GetNextFreeVersion(deployingNow, cancellationToken);
         }
 
-        try {
-            return context.GetThunderstoreListing(identity)
-                .Versions
-                .Values
-                .Where(versionListing => versionListing.IsDeployedFrom(identity.Version))
-                .MaxBy(versionListing => versionListing.Version)!
-                .Version;
-        }
-        catch (KeyNotFoundException) {
-            return context.GetNextFreeVersion(identity);
-        }
+        var thunderstorePackage = await context.GetThunderstoreListing(identity, cancellationToken);
+        if (thunderstorePackage is null) return await context.GetNextFreeVersion(identity, cancellationToken);
+
+        return thunderstorePackage
+            .Versions
+            .Where(versionListing => versionListing.IsDeployedFrom(identity.Version))
+            .MaxBy(versionListing => versionListing.VersionNumber)!
+            .VersionNumber;
     }
 
-    private Dictionary<string, string> ComputeDependenciesFor(BuildContext context, IPackageSearchMetadata packageVersion)
+    private async ValueTask<Dictionary<string, string>> ComputeDependenciesFor(BuildContext context, IPackageSearchMetadata packageVersion)
     {
         if (!context.ResolvedPackageVersionDependencies.TryGetValue(packageVersion.Identity, out var resolvedDependencies)) return new();
 
-        return resolvedDependencies
-            .ToDictionary(
-                dependencyIdentity => $"{context.CommunityConfiguration.PackageNamespace}-{dependencyIdentity.FormatPackageName()}",
-                dependencyIdentity => GetVersionOfLatestDeploy(context, dependencyIdentity).ToString()
+        return await resolvedDependencies
+            .ToAsyncEnumerable()
+            .ToDictionaryAsync(
+                async (dependencyIdentity, ct) => $"{context.CommunityConfiguration.PackageNamespace}-{dependencyIdentity.FormatPackageName()}",
+                async (dependencyIdentity, ct) => (await GetVersionOfLatestDeploy(context, dependencyIdentity, ct)).ToString()
             );
     }
 
@@ -811,20 +777,20 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
         ];
     }
 
-    private Task<ThunderstoreProject> ConstructThunderstoreMetaSchemaFor(BuildContext context, IPackageSearchMetadata packageVersion)
+    private async Task<ThunderstoreProject> ConstructThunderstoreMetaSchemaFor(BuildContext context, IPackageSearchMetadata packageVersion)
     {
         var identity = packageVersion.Identity;
         var packageLibSubDir = context.GetIntermediatePackageLibSubdirectory(identity);
 
-        return Task.FromResult(new ThunderstoreProject {
+        return new ThunderstoreProject {
             Package = new() {
                 Namespace = context.CommunityConfiguration.PackageNamespace,
                 Name = identity.FormatPackageName(),
-                VersionNumber = context.GetNextFreeVersion(identity).ToString(),
+                VersionNumber = (await context.GetNextFreeVersion(identity)).ToString(),
                 Description = $"NuGet {identity.Id} package re-bundled for convenient consumption and dependency management.",
                 WebsiteUrl = $"https://nuget.org/packages/{identity.Id}/{identity.Version}",
                 ContainsNsfwContent = false,
-                Dependencies = ComputeDependenciesFor(context, packageVersion),
+                Dependencies = await ComputeDependenciesFor(context, packageVersion),
             },
             Build = new() {
                 Icon = packageLibSubDir
@@ -850,7 +816,7 @@ public sealed class ConstructThunderstoreMetaSchemasTask : AsyncFrostingTask<Bui
             Install = new() {
                 InstallerDeclarations = [new() { Identifier = "legacy" }],
             },
-        });
+        };
     }
 
     public override async Task RunAsync(BuildContext context)
