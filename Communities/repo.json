@@ -1,0 +1,9 @@
+{
+  "$schema": "../assets/community.schema.json",
+  "communitySlug": "repo",
+  "runtimeFrameworkMoniker": "netstandard2.1",
+  "packageNamespace": "dotnet_repo",
+  "packages": [
+    "Serilog"
+  ]
+}
