@@ -3,6 +3,7 @@
  * The Sigurd Team licenses this file to you under the GPL-3.0-OR-LATER license.
  */
 
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Build.Schema.Converters;
 using Json.Schema;
@@ -25,4 +26,7 @@ public class CommunityConfiguration
 
     [JsonPropertyName("packageNamespace")]
     public required string PackageNamespace { get; init; }
+
+    [JsonPropertyName("packages")]
+    public List<string>? PackageIds { get; init; }
 }

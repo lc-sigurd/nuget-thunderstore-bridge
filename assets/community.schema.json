@@ -15,6 +15,14 @@
     "packageNamespace": {
       "title": "Thunderstore package namespace",
       "type": "string"
+    },
+    "packages": {
+      "title": "NuGet packages to bridge",
+      "type": "array",
+      "items": {
+        "title": "NuGet package ID",
+        "type": "string"
+      }
     }
   },
   "required": [ "communitySlug", "runtimeFrameworkMoniker", "packageNamespace" ]
