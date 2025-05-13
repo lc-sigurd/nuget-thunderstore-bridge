@@ -7,6 +7,6 @@
     "Serilog",
     "Lordfirespeed.Bus",
     "Aeron.Client",
-    "System.Text.Json",
+    "System.Text.Json"
   ]
 }
