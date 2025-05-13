@@ -5,6 +5,8 @@
   "packageNamespace": "dotnet_repo",
   "packages": [
     "Serilog",
-    "Lordfirespeed.Bus"
+    "Lordfirespeed.Bus",
+    "Aeron.Client",
+    "System.Text.Json",
   ]
 }
